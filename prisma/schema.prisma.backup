@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  ADMIN
+  ORGANIZADOR
+}
+
+enum EstadoOrganizador {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum TipoSorteo {
+  RIFA
+  BINGO
+  SORTEO_SIMPLE
+}
+
+enum EstadoSorteo {
+  BORRADOR
+  ACTIVO
+  CERRADO
+  SORTEADO
+}
+
+enum EstadoItem {
+  LIBRE
+  RESERVADO
+  TOMADO
+}
+
+enum ModoTableroEnVivo {
+  BINGO
+  REPETICION
+}
+
+model Usuario {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  passwordHash String
+  nombre       String
+  rol          RolUsuario        @default(ORGANIZADOR)
+  estado       EstadoOrganizador @default(PENDIENTE)
+  creadoEn     DateTime          @default(now())
+  sorteos      Sorteo[]
+
+  @@map("usuarios")
+}
+
+model Sorteo {
+  id           String            @id @default(uuid())
+  organizadorId String
+  organizador  Usuario           @relation(fields: [organizadorId], references: [id])
+  tipo         TipoSorteo
+  titulo       String
+  descripcion  String?
+  // Config libre por tipo: precio, cantidadNumeros, cartonesPorSerie, cantidadSeries,
+  // cantidadGanadores, etc. Se valida en src/routes/sorteos.routes.ts según el tipo.
+  config       Json              @default("{}")
+  estado       EstadoSorteo      @default(BORRADOR)
+  linkToken    String?           @unique
+  fechaCierre  DateTime?
+  creadoEn     DateTime          @default(now())
+
+  numeros      Numero[]
+  series       Serie[]
+  inscripciones Inscripcion[]
+  tableroEnVivo TableroEnVivo?
+  resultado    ResultadoSorteo?
+
+  @@map("sorteos")
+}
+
+model Participante {
+  id         String   @id @default(uuid())
+  contacto   String   @unique
+  verificado Boolean  @default(false)
+  creadoEn   DateTime @default(now())
+
+  numeros    Numero[]
+  series     Serie[]
+  inscripciones Inscripcion[]
+
+  @@map("participantes")
+}
+
+/** Para tipo SORTEO_SIMPLE: solo hace falta anotarse, no hay número ni cartón. */
+model Inscripcion {
+  id             String       @id @default(uuid())
+  sorteoId       String
+  sorteo         Sorteo       @relation(fields: [sorteoId], references: [id])
+  participanteId String
+  participante   Participante @relation(fields: [participanteId], references: [id])
+  verificado     Boolean      @default(false)
+  codigoHash     String?
+  creadoEn       DateTime     @default(now())
+
+  @@unique([sorteoId, participanteId])
+  @@map("inscripciones")
+}
+
+model Numero {
+  id             String       @id @default(uuid())
+  sorteoId       String
+  sorteo         Sorteo       @relation(fields: [sorteoId], references: [id])
+  valor          Int
+  estado         EstadoItem   @default(LIBRE)
+  participanteId String?
+  participante   Participante? @relation(fields: [participanteId], references: [id])
+  codigoHash     String?
+  reservadoHasta DateTime?
+
+  @@unique([sorteoId, valor])
+  @@index([sorteoId, estado])
+  @@map("numeros")
+}
+
+model Serie {
+  id               String       @id @default(uuid())
+  sorteoId         String
+  sorteo           Sorteo       @relation(fields: [sorteoId], references: [id])
+  numero           Int
+  cantidadCartones Int
+  estado           EstadoItem   @default(LIBRE)
+  participanteId   String?
+  participante     Participante? @relation(fields: [participanteId], references: [id])
+  codigoHash       String?
+  reservadoHasta   DateTime?
+
+  cartones         Carton[]
+
+  @@unique([sorteoId, numero])
+  @@index([sorteoId, estado])
+  @@map("series")
+}
+
+model Carton {
+  id        String @id @default(uuid())
+  serieId   String
+  serie     Serie  @relation(fields: [serieId], references: [id])
+  posicion  Int
+  // grilla 3x9: array de 3 filas, cada una con 9 celdas (number | null)
+  contenido Json
+
+  @@unique([serieId, posicion])
+  @@map("cartones")
+}
+
+model ResultadoSorteo {
+  id            String   @id @default(uuid())
+  sorteoId      String   @unique
+  sorteo        Sorteo   @relation(fields: [sorteoId], references: [id])
+  semilla       String
+  hashPublicado String
+  ganadorTipo   String
+  ganadorValor  String
+  inputs        Json
+  sorteadoEn    DateTime @default(now())
+
+  @@map("resultados_sorteo")
+}
+
+/**
+ * Estado del sorteo en vivo (el bolillero con voz que armamos en las
+ * vistas). Vive aparte del ResultadoSorteo porque acá no hay "un"
+ * ganador elegido de una vez: es una secuencia de bolillas que van
+ * saliendo, con o sin repetición según el modo, y el estado se
+ * persiste para que cualquier pantalla (organizador o espectador)
+ * pueda reconectarse y ver exactamente lo mismo.
+ */
+model TableroEnVivo {
+  id               String            @id @default(uuid())
+  sorteoId         String            @unique
+  sorteo           Sorteo            @relation(fields: [sorteoId], references: [id])
+  modo             ModoTableroEnVivo @default(BINGO)
+  rangoMax         Int               @default(90)
+  umbralRepeticion Int?
+  bolillas         Json              @default("[]")
+  conteos          Json              @default("{}")
+  ganadorNumero    Int?
+  estado           String            @default("EN_CURSO")
+  actualizadoEn    DateTime          @updatedAt
+  creadoEn         DateTime          @default(now())
+
+  @@map("tableros_en_vivo")
+}

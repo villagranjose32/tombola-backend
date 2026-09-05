@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo Virtual — Sorteo en vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14231C; --felt:#1E3B2A; --felt-2:#25462F; --paper:#F2E9D8; --paper-2:#E9DEC6;
+    --marquee:#E3A23B; --stub:#BD4030; --chalk:#F6F1E4; --teal:#4FA490; --gold:#F0C75E;
+    --line: rgba(246,241,228,0.16);
+    --disp:'Anton', sans-serif; --body:'Inter', sans-serif; --mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--ink); color:var(--chalk); font-family:var(--body); -webkit-font-smoothing:antialiased; }
+  .marquee-bar{ background: repeating-linear-gradient(90deg, var(--marquee) 0 22px, #d6922f 22px 24px); height:6px; }
+
+  header{ padding:22px 28px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--marquee); margin-bottom:6px; }
+  h1{ font-family:var(--disp); font-weight:400; font-size:24px; margin:0; color:var(--paper); letter-spacing:0.3px; }
+
+  .api-bar{ background:var(--felt-2); border-bottom:1px solid var(--line); padding:9px 28px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .api-bar label{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(246,241,228,0.5); }
+  .api-bar input{ background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:4px; padding:6px 9px; font-family:var(--mono); font-size:11.5px; width:230px; }
+
+  .mode-toggle{ display:flex; background:var(--felt); border:1px solid var(--line); border-radius:24px; padding:3px; }
+  .mode-toggle button{ font-family:var(--mono); font-size:11px; letter-spacing:0.5px; text-transform:uppercase; padding:8px 15px; border-radius:20px; border:none; background:transparent; color:rgba(246,241,228,0.55); cursor:pointer; }
+  .mode-toggle button.active{ background:var(--marquee); color:var(--ink); }
+
+  main{ max-width:1180px; margin:0 auto; padding:26px; display:grid; grid-template-columns: 340px 1fr; gap:20px; }
+  @media (max-width:880px){ main{ grid-template-columns:1fr; } }
+
+  .panel{ background:var(--felt); border:1px solid var(--line); border-radius:6px; padding:20px; }
+  .panel + .panel{ margin-top:14px; }
+  .panel h2{ font-family:var(--disp); font-weight:400; font-size:15px; letter-spacing:0.5px; color:var(--paper); margin:0 0 12px; text-transform:uppercase; }
+
+  label{ font-family:var(--mono); font-size:10px; letter-spacing:0.8px; text-transform:uppercase; color:rgba(246,241,228,0.5); display:block; margin-bottom:5px; }
+  input, select{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:6px; padding:9px 10px; font-family:var(--body); font-size:12.5px; }
+  input:focus, select:focus{ outline:2px solid var(--marquee); outline-offset:0; border-color:transparent; }
+  .field{ margin-bottom:12px; }
+  .hint{ font-size:11px; color:rgba(246,241,228,0.45); margin-top:5px; line-height:1.5; }
+
+  button.btn{ font-family:var(--body); font-weight:700; font-size:12.5px; border:none; border-radius:6px; cursor:pointer; padding:10px 14px; }
+  .btn-primary{ background:var(--marquee); color:var(--ink); } .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-ghost{ background:transparent; color:rgba(246,241,228,0.7); border:1px solid var(--line); } .btn-ghost:hover{ border-color:rgba(246,241,228,0.4); }
+  .btn-full{ width:100%; }
+  button:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .banner{ padding:9px 12px; border-radius:6px; font-size:12px; margin-bottom:10px; }
+  .banner.ok{ background:rgba(79,164,144,0.15); color:var(--teal); border:1px solid rgba(79,164,144,0.3); }
+  .banner.err{ background:rgba(189,64,48,0.15); color:#e18072; border:1px solid rgba(189,64,48,0.3); }
+  .banner.info{ background:rgba(227,162,59,0.1); color:var(--marquee); border:1px solid rgba(227,162,59,0.3); }
+
+  /* bolillero */
+  .cage-wrap{ display:flex; flex-direction:column; align-items:center; }
+  .cage{ position:relative; width:220px; height:220px; border-radius:50%; background: radial-gradient(circle at 35% 30%, rgba(246,241,228,0.06), transparent 60%), var(--felt-2); border:3px solid rgba(246,241,228,0.15); overflow:hidden; }
+  .cage::before{ content:""; position:absolute; inset:8px; border-radius:50%; border:1px dashed rgba(246,241,228,0.15); }
+  .mini-ball{ position:absolute; width:22px; height:22px; border-radius:50%; background: radial-gradient(circle at 32% 28%, #6fc4b0, var(--teal)); font-family:var(--mono); font-size:9px; font-weight:700; color:var(--ink); display:flex; align-items:center; justify-content:center; animation: float 3.2s ease-in-out infinite; }
+  @keyframes float{ 0%{transform:translate(0,0);} 25%{transform:translate(5px,-7px);} 50%{transform:translate(-4px,3px);} 75%{transform:translate(3px,6px);} 100%{transform:translate(0,0);} }
+  .cage.spinning .mini-ball{ animation-duration:0.35s; } .cage.spinning{ filter: blur(1.5px); }
+
+  .current-ball{ width:82px; height:82px; border-radius:50%; margin-top:-140px; background: radial-gradient(circle at 32% 28%, var(--gold), var(--marquee)); border:4px solid var(--ink); display:flex; align-items:center; justify-content:center; font-family:var(--disp); font-size:28px; color:var(--ink); box-shadow:0 8px 24px rgba(0,0,0,0.4); position:relative; z-index:2; }
+  .current-ball.wide{ font-size:20px; }
+  .current-ball.pop{ animation: pop .4s ease; }
+  @keyframes pop{ 0%{transform:scale(0.4);opacity:0;} 60%{transform:scale(1.15);} 100%{transform:scale(1);opacity:1;} }
+  .current-ball.empty{ background:var(--felt-2); border-color:var(--line); color:rgba(246,241,228,0.3); font-size:12px; font-family:var(--mono); }
+
+  .historial{ display:flex; gap:8px; margin-top:10px; }
+  .hist-ball{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-weight:700; font-size:11.5px; background:var(--felt-2); border:1px solid var(--line); color:rgba(246,241,228,0.35); }
+  .hist-ball.filled{ background: radial-gradient(circle at 32% 28%, #6fc4b0, var(--teal)); color:var(--ink); border:none; }
+
+  .board{ display:grid; grid-template-columns:repeat(10, 1fr); gap:6px; }
+  .board .n{ aspect-ratio:1; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:11px; font-weight:600; background:var(--felt-2); color:rgba(246,241,228,0.3); border:1px solid var(--line); }
+  .board .n.called{ background: radial-gradient(circle at 32% 28%, #6fc4b0, var(--teal)); color:var(--ink); border:none; }
+  .board .n.last{ box-shadow:0 0 0 3px var(--gold); }
+
+  .rep-grid{ display:grid; grid-template-columns:repeat(10, 1fr); gap:6px; }
+  .rep-grid .n{ aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:var(--mono); font-size:11px; font-weight:600; background:var(--felt-2); color:rgba(246,241,228,0.3); border:1px solid var(--line); position:relative; }
+  .rep-grid .n .cnt{ font-size:8px; margin-top:1px; opacity:0.8; }
+  .rep-grid .n.c1{ background:rgba(79,164,144,0.18); color:var(--teal); border-color:transparent; }
+  .rep-grid .n.c2{ background:rgba(227,162,59,0.22); color:var(--marquee); border-color:transparent; }
+  .rep-grid .n.win{ background: radial-gradient(circle at 32% 28%, var(--gold), var(--marquee)); color:var(--ink); border-color:transparent; animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{box-shadow:0 0 0 0 rgba(240,199,94,0.5);} 50%{box-shadow:0 0 0 6px rgba(240,199,94,0);} }
+
+  .winner-banner{ display:none; margin-bottom:16px; padding:14px 18px; border-radius:6px; background: linear-gradient(90deg, rgba(240,199,94,0.18), rgba(227,162,59,0.06)); border:1px solid var(--gold); font-family:var(--disp); font-size:17px; color:var(--gold); letter-spacing:0.3px; }
+  .winner-banner.show{ display:block; }
+
+  .sub-controls{ display:flex; gap:8px; margin-top:10px; }
+  .sub-controls button{ flex:1; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; background:transparent; color:rgba(246,241,228,0.6); border:1px solid var(--line); border-radius:6px; padding:9px; cursor:pointer; }
+  .sub-controls button.active{ color:var(--marquee); border-color:var(--marquee); }
+
+  input[type=range]{ -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:2px; background:var(--felt-2); margin:4px 0; accent-color:var(--marquee); }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--marquee); border:2px solid var(--ink); cursor:pointer; margin-top:-6px; }
+
+  .link-share{ font-family:var(--mono); font-size:10.5px; background:var(--ink); border:1px solid var(--line); padding:8px 10px; border-radius:6px; color:rgba(246,241,228,0.6); word-break:break-all; margin-top:8px; }
+  .live-series{display:grid;gap:14px}.live-serie{background:var(--felt);border:1px solid var(--line);border-radius:6px;padding:14px}.live-serie-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.live-cards{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px}.live-card{background:var(--paper);color:var(--ink);padding:10px;border-radius:6px}.live-cells{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}.live-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1px solid #c9bea8;border-radius:3px;font:700 11px var(--mono);position:relative;color:var(--ink);background:#f7f0e2}.live-cell:not(.blank){cursor:pointer}.live-cell.blank{background:#ddd3c0}.live-cell.mark{background:#f5d78e;border-color:var(--marquee)}.live-cell.mark.symbol-only{background:#f7f0e2;border-color:#c9bea8}.live-cell .mark-symbol{position:absolute;font-size:21px;color:var(--stub);line-height:1}.live-cell.mark.symbol-only .mark-symbol{font-size:25px;color:rgba(189,64,48,.78)}.live-cell .cell-number{position:relative;z-index:1}.mark-palette{display:flex;gap:6px;margin:10px 0}.mark-choice{font-size:19px!important;padding:7px 12px!important}.mark-choice.active{background:var(--marquee)!important;color:var(--ink)!important}.serie-load-row{display:flex;gap:8px}.serie-load-row input{flex:1}.serie-remove{padding:6px 9px!important;font-size:11px!important}
+  #sidebarCartones .live-cards{grid-template-columns:1fr}.sidebar-cartones:not(:empty){margin-top:14px}.sidebar-cartones .live-serie{padding:12px}.sidebar-cartones .live-cell{font-size:10px}.sidebar-cartones .live-cell .mark-symbol{font-size:18px}
+  .claim-panel{display:none;border:2px solid var(--gold);background:linear-gradient(145deg,rgba(240,199,94,.16),var(--felt));margin-bottom:14px}.claim-panel.show{display:block}.claim-title{font-family:var(--disp);font-size:22px;color:var(--gold);margin-bottom:5px}.claim-meta{font:11px var(--mono);color:rgba(246,241,228,.7);margin-bottom:12px}.claim-panel .live-cards{grid-template-columns:minmax(260px,420px)}
+  @media (max-width:650px){.live-cards{grid-template-columns:1fr}}
+
+  @media (prefers-reduced-motion: reduce){ .mini-ball, .rep-grid .n.win, .current-ball.pop{ animation:none !important; } }
+</style>
+</head>
+<body>
+<div class="marquee-bar"></div>
+<header>
+  <div>
+    <div class="eyebrow">Bingo Virtual · Sorteo en vivo</div>
+    <h1 id="tituloSorteo">Bolillero</h1>
+  </div>
+  <div class="mode-toggle" id="modeToggle">
+    <button class="active" data-modo="organizador">Organizador</button>
+    <button data-modo="espectador">Espectador</button>
+  </div>
+</header>
+
+<div class="api-bar">
+  <label>API</label>
+  <input type="text" id="apiBaseInput" value="http://localhost:4000" />
+  <span class="hint" style="margin:0;">apuntá esto a tu backend corriendo</span>
+</div>
+
+<main>
+  <div id="sidebarCartones">
+    <!-- ORGANIZADOR: login -->
+    <div class="panel" id="orgLoginBox">
+      <h2>Ingresar como organizador</h2>
+      <div class="field"><label>Email</label><input id="orgEmail" type="email" placeholder="club@ejemplo.com"></div>
+      <div class="field"><label>Contraseña</label><input id="orgPass" type="password"></div>
+      <div id="orgLoginMsg"></div>
+      <button class="btn btn-primary btn-full" id="btnOrgLogin">Ingresar</button>
+    </div>
+
+    <!-- ORGANIZADOR: elegir sorteo -->
+    <div class="panel" id="orgSelectBox" style="display:none;">
+      <h2>Sorteos guardados</h2>
+      <div class="field"><label>Seleccioná un sorteo del panel</label><select id="selectSorteo"></select></div>
+      <button class="btn btn-ghost btn-full" id="btnCargarSorteo">Cargar</button>
+      <button class="btn btn-primary btn-full" id="btnNuevoEvento" style="margin-top:8px;">+ Crear nuevo</button>
+      <div id="orgSelectMsg" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- ORGANIZADOR: configuración inicial -->
+    <div class="panel" id="orgConfigBox" style="display:none;">
+      <h2>Configurar tablero en vivo</h2>
+      <div class="field"><label>Nombre del evento</label><input id="cfgTitulo" type="text" placeholder="Sorteo aniversario"></div>
+      <div class="field">
+        <label>Modo</label>
+        <select id="cfgModo">
+          <option value="BINGO">Tablero de bingo (sin repetición)</option>
+          <option value="REPETICION">Sorteo con repeticiones</option>
+        </select>
+      </div>
+      <div class="field"><label>Cantidad de números en juego</label><input id="cfgRangoMax" type="number" value="90" min="2" max="999"></div>
+      <div class="field"><label>Bingo vinculado</label><select id="cfgBingo"><option value="">Seleccioná un bingo</option></select><div class="hint">Necesario para que los espectadores puedan cargar sus series y cartones.</div></div>
+      <div class="field" id="cfgUmbralField" style="display:none;">
+        <label>Gana al repetirse</label>
+        <input id="cfgUmbral" type="number" value="3" min="1" max="10">
+      </div>
+      <div id="orgConfigMsg"></div>
+      <button class="btn btn-primary btn-full" id="btnIniciarTablero">Iniciar tablero en vivo</button>
+    </div>
+
+    <!-- controles del bolillero (organizador con tablero activo) -->
+    <div class="panel" id="orgControlesBox" style="display:none;">
+      <h2>Controles</h2>
+      <button class="btn btn-primary btn-full" id="btnExtraer">Extraer bolilla</button>
+      <div class="sub-controls">
+        <button id="autoplayBtn">▶ Automático</button>
+        <button id="btnReiniciar">↺ Vaciar y volver a jugar</button>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Velocidad automática — <span id="speedVal">2.4</span>s</label>
+        <input type="range" id="speedRange" min="1" max="8" step="0.2" value="2.4">
+      </div>
+      <button class="btn btn-ghost btn-full" id="btnReconfigurar" style="margin-top:8px;">⚙ Reconfigurar (reinicia todo)</button>
+      <div class="link-share" id="linkCompartir"></div>
+    </div>
+
+    <!-- ESPECTADOR -->
+    <div class="panel" id="espectadorBox" style="display:none;">
+      <h2>Ver como espectador</h2>
+      <div class="field"><label>Link token del bingo</label><input id="espectadorToken" type="text" placeholder="ej: bingo-solidario-agosto-x9k2f8"></div>
+      <button class="btn btn-primary btn-full" id="btnConectarEspectador">Conectarme</button>
+      <div id="espectadorMsg" style="margin-top:10px;"></div>
+      <div class="hint">Se conecta por WebSocket — ve cada bolilla apenas el organizador la extrae, sin recargar.</div>
+    </div>
+
+    <!-- voz (siempre visible una vez hay tablero) -->
+    <div class="panel" id="vozBox" style="display:none;">
+      <h2>Voz</h2>
+      <div class="field">
+        <label>Quién canta el número</label>
+        <select id="voiceGender"><option value="femenina">Femenina</option><option value="masculina">Masculina</option><option value="ninguna">Sin voz</option></select>
+      </div>
+      <div class="field">
+        <label>Volumen — <span id="volVal">100</span>%</label>
+        <input type="range" id="volRange" min="0" max="100" step="5" value="100">
+      </div>
+      <div class="field">
+        <label>Últimas 5 bolillas</label>
+        <div class="historial" id="historial"></div>
+      </div>
+    </div>
+    <div class="panel" id="serieEspectadorBox" style="display:none;">
+      <h2>Mis cartones</h2>
+      <div class="field"><label>Número de serie</label><div class="serie-load-row"><input id="serieReingreso" type="number" min="1" placeholder="Ej: 12"><button class="btn btn-primary" id="btnCargarSerieEspectador">Agregar</button></div></div>
+      <label>Símbolo para marcar</label>
+      <div class="mark-palette" id="markPaletteVivo">
+        <button type="button" class="btn btn-ghost mark-choice active" data-mark="🌱" title="Semilla">🌱</button>
+        <button type="button" class="btn btn-ghost mark-choice" data-mark="✓" title="Tilde">✓</button>
+        <button type="button" class="btn btn-ghost mark-choice" data-mark="✕" title="Cruz">✕</button>
+      </div>
+      <div class="hint">Podés agregar varias series. Tocá un número del cartón para marcarlo o desmarcarlo.</div>
+      <div class="field" style="margin-top:12px;"><label>Serie con la que cantás</label><select id="reclamoSerie"><option value="">Agregá una serie</option></select></div>
+      <div class="field"><label>Número de cartón</label><select id="reclamoCarton"><option value="">Elegí una serie</option></select></div>
+      <div class="sub-controls"><button id="btnCantarLinea">Cantar línea</button><button id="btnCantarBingo">Cantar bingo</button></div>
+    </div>
+    <div class="panel" id="verificarSerieBox" style="display:none;"><h2>Control de ganador</h2><div class="field"><label>Número de serie</label><input id="serieControlNumero" type="number" min="1"></div><div class="field"><label>Número de cartón</label><input id="cartonControlNumero" type="number" min="1"></div><button class="btn btn-ghost btn-full" id="btnVerificarSerie">Ver cartón y marcas</button></div>
+    <div class="live-series sidebar-cartones" id="cartonesEnVivo"></div>
+  </div>
+
+  <div>
+    <div class="winner-banner" id="winnerBanner"></div>
+    <div class="panel claim-panel" id="reclamoPublico"></div>
+    <div class="panel" id="cagePanel" style="display:none;">
+      <h2>Bolillero</h2>
+      <div class="cage-wrap">
+        <div class="cage" id="cage"></div>
+        <div class="current-ball empty" id="currentBall">esperando</div>
+      </div>
+    </div>
+    <div class="panel" id="boardPanel" style="display:none; margin-top:14px;">
+      <h2 id="boardTitle">Tablero</h2>
+      <div id="board"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  const UNIDADES=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte'];
+  const CENTENAS={100:'cien',200:'doscientos',300:'trescientos',400:'cuatrocientos',500:'quinientos',600:'seiscientos',700:'setecientos',800:'ochocientos',900:'novecientos'};
+  function numeroATexto(n){
+    if(n<=20) return UNIDADES[n];
+    if(n<100){
+      const decenas={30:'treinta',40:'cuarenta',50:'cincuenta',60:'sesenta',70:'setenta',80:'ochenta',90:'noventa'};
+      if(n<30) return 'veinti'+UNIDADES[n-20];
+      const d=Math.floor(n/10)*10, u=n%10;
+      return decenas[d] + (u? ' y '+UNIDADES[u] : '');
+    }
+    if(n===100) return 'cien';
+    if(n<1000){ const c=Math.floor(n/100)*100, resto=n%100; return CENTENAS[c] + (resto ? ' '+numeroATexto(resto) : ''); }
+    return String(n);
+  }
+  function cifras(m){ return String(m).length; }
+  function pad(n, m){ return String(n).padStart(cifras(m), '0'); }
+
+  /* ---------- estado ---------- */
+  let API = document.getElementById('apiBaseInput').value.replace(/\/$/, '');
+  if (!['localhost','127.0.0.1'].includes(window.location.hostname)) {
+    API = window.location.origin;
+    document.getElementById('apiBaseInput').value = API;
+  }
+  document.getElementById('apiBaseInput').addEventListener('change', e => { API = e.target.value.replace(/\/$/, ''); });
+
+  let modoPantalla = 'organizador';
+  let orgToken = null, orgInfo = null;
+  let misBingos = [];
+  let sorteosGuardados = [];
+  let bingosDisponibles = [];
+  let sorteoId = null, sorteoToken = null;
+  let estado = null; // {modo, rangoMax, umbralRepeticion, bolillas, conteos, ganadorNumero, estado}
+  let autoplay = false, autoTimer = null, autoplaySeconds = 2.4;
+  let voiceVolume = 1;
+  let ws = null;
+
+  async function api(path, { method='GET', body, token } = {}) {
+    const headers = {};
+    if (body) headers['Content-Type'] = 'application/json';
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    let data = null; try { data = await res.json(); } catch(e){}
+    if (!res.ok) throw new Error((data && data.error) || ('Error HTTP ' + res.status));
+    return data;
+  }
+  function banner(tipo, msg){ return `<div class="banner ${tipo}">${msg}</div>`; }
+  function escapeHtml(valor){ return String(valor??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /* ---------- modo organizador / espectador ---------- */
+  document.querySelectorAll('#modeToggle button').forEach(b => b.addEventListener('click', () => {
+    modoPantalla = b.dataset.modo;
+    document.querySelectorAll('#modeToggle button').forEach(x => x.classList.toggle('active', x===b));
+    document.getElementById('orgLoginBox').style.display = (modoPantalla==='organizador' && !orgToken) ? 'block' : 'none';
+    document.getElementById('orgSelectBox').style.display = (modoPantalla==='organizador' && orgToken) ? 'block' : 'none';
+    document.getElementById('espectadorBox').style.display = modoPantalla==='espectador' ? 'block' : 'none';
+    if (modoPantalla==='espectador') {
+      document.getElementById('orgConfigBox').style.display='none';
+      document.getElementById('orgControlesBox').style.display='none';
+    }
+  }));
+
+  /* ---------- login organizador ---------- */
+  document.getElementById('btnOrgLogin').addEventListener('click', async () => {
+    const email = document.getElementById('orgEmail').value.trim();
+    const password = document.getElementById('orgPass').value;
+    const msg = document.getElementById('orgLoginMsg');
+    try {
+      const data = await api('/auth/login', { method:'POST', body:{ email, password } });
+      if (data.usuario.rol !== 'ORGANIZADOR') throw new Error('Esa cuenta no es de organizador');
+      orgToken = data.token; orgInfo = data.usuario;
+      sessionStorage.setItem('tombolaOrgToken', orgToken);
+      document.getElementById('orgLoginBox').style.display = 'none';
+      document.getElementById('orgSelectBox').style.display = 'block';
+      cargarMisBingos();
+    } catch(e){ msg.innerHTML = banner('err', e.message); }
+  });
+
+  async function cargarMisBingos(){
+    const sel = document.getElementById('selectSorteo');
+    sel.innerHTML = '<option>Cargando...</option>';
+    try {
+      misBingos = await api('/eventos-en-vivo', { token: orgToken });
+      sorteosGuardados = await api('/sorteos', { token: orgToken });
+      bingosDisponibles = sorteosGuardados.filter(s => s.tipo === 'BINGO' && s.linkToken);
+      document.getElementById('cfgBingo').innerHTML = '<option value="">Seleccioná un bingo</option>' + bingosDisponibles.map(s => `<option value="${s.id}">${s.titulo}</option>`).join('');
+      if (sorteosGuardados.length === 0) { sel.innerHTML = '<option value="">No hay sorteos guardados</option>'; return; }
+      sel.innerHTML = sorteosGuardados.map(s => `<option value="${s.id}">${s.titulo} · ${s.tipo} (${s.estado})</option>`).join('');
+    } catch(e){ sel.innerHTML = `<option>${e.message}</option>`; }
+  }
+
+  document.getElementById('btnCargarSorteo').addEventListener('click', async () => {
+    const sorteoGuardadoId = document.getElementById('selectSorteo').value;
+    if (!sorteoGuardadoId) return;
+    const guardado = sorteosGuardados.find(s => s.id === sorteoGuardadoId);
+    const evento = misBingos.find(e => e.sorteoBingoId === sorteoGuardadoId);
+    sorteoId = evento?.id || null;
+    sorteoToken = evento?.linkToken || null;
+    document.getElementById('tituloSorteo').textContent = guardado?.titulo || 'Bolillero';
+    const msg = document.getElementById('orgSelectMsg');
+    msg.innerHTML = '';
+    if (!evento) {
+      document.getElementById('cfgTitulo').value = guardado?.titulo || '';
+      document.getElementById('cfgModo').value = guardado?.tipo === 'BINGO' ? 'BINGO' : 'REPETICION';
+      document.getElementById('cfgBingo').value = guardado?.tipo === 'BINGO' ? sorteoGuardadoId : '';
+      actualizarCampoRepeticiones();
+      document.getElementById('orgConfigBox').style.display = 'block';
+      document.getElementById('orgControlesBox').style.display = 'none';
+      document.getElementById('cagePanel').style.display = 'none';
+      document.getElementById('boardPanel').style.display = 'none';
+      document.getElementById('vozBox').style.display = 'none';
+      msg.innerHTML = banner('info', 'Este sorteo guardado todavía no tiene bolillero. Revisá la configuración e inicialo.');
+      return;
+    }
+    try {
+      const data = await api(`/eventos-en-vivo/${evento.id}`, { token: orgToken });
+      estado = data;
+      document.getElementById('cfgTitulo').value = data.titulo;
+      document.getElementById('cfgModo').value = data.modo;
+      actualizarCampoRepeticiones();
+      document.getElementById('cfgRangoMax').value = data.rangoMax;
+      document.getElementById('cfgUmbral').value = data.umbralRepeticion || 3;
+      document.getElementById('cfgBingo').value = data.sorteoBingoId || '';
+      mostrarControlesOrganizador();
+      if ((data.bolillas || []).length) mostrarBolillaGrande(data.bolillas[data.bolillas.length - 1]);
+      else limpiarBolillaCentral();
+      pintarEstado(estado);
+    } catch (e) {
+      // todavía no se inició: mostrar el formulario de config
+      document.getElementById('orgConfigBox').style.display = 'block';
+      document.getElementById('orgControlesBox').style.display = 'none';
+      document.getElementById('cagePanel').style.display = 'none';
+      document.getElementById('boardPanel').style.display = 'none';
+      document.getElementById('vozBox').style.display = 'none';
+      msg.innerHTML = banner('info', 'Todavía no arrancó el tablero en vivo de este bingo — configuralo abajo.');
+    }
+  });
+
+  document.getElementById('btnNuevoEvento').addEventListener('click', () => {
+    sorteoId = null; sorteoToken = null; estado = null;
+    pararAutoplay();
+    limpiarBolillaCentral();
+    document.getElementById('btnExtraer').disabled = false;
+    document.getElementById('cfgTitulo').value = '';
+    document.getElementById('cfgModo').value = 'BINGO';
+    actualizarCampoRepeticiones();
+    document.getElementById('orgConfigBox').style.display = 'block';
+    document.getElementById('orgControlesBox').style.display = 'none';
+  });
+
+  function actualizarCampoRepeticiones(){
+    const esRepeticion = document.getElementById('cfgModo').value === 'REPETICION';
+    document.getElementById('cfgUmbralField').style.display = esRepeticion ? 'block' : 'none';
+  }
+  document.getElementById('cfgModo').addEventListener('change', actualizarCampoRepeticiones);
+
+  document.getElementById('btnIniciarTablero').addEventListener('click', async () => {
+    const msg = document.getElementById('orgConfigMsg');
+    const titulo = document.getElementById('cfgTitulo').value.trim();
+    const modo = document.getElementById('cfgModo').value;
+    const rangoMax = Number(document.getElementById('cfgRangoMax').value);
+    const body = { titulo, modo, rangoMax };
+    body.sorteoBingoId = document.getElementById('cfgBingo').value || null;
+    if (modo === 'BINGO' && !body.sorteoBingoId) { msg.innerHTML = banner('err', 'Seleccioná el bingo cuyas series se usarán'); return; }
+    if (modo === 'REPETICION') body.umbralRepeticion = Number(document.getElementById('cfgUmbral').value);
+    try {
+      estado = sorteoId
+        ? await api(`/eventos-en-vivo/${sorteoId}/configurar`, { method:'POST', token: orgToken, body })
+        : await api('/eventos-en-vivo', { method:'POST', token: orgToken, body });
+      sorteoId = estado.id; sorteoToken = estado.linkToken;
+      document.getElementById('tituloSorteo').textContent = estado.titulo;
+      pararAutoplay();
+      limpiarBolillaCentral();
+      document.getElementById('btnExtraer').disabled = false;
+      document.getElementById('orgConfigBox').style.display = 'none';
+      mostrarControlesOrganizador();
+      pintarEstado(estado);
+    } catch (e) { msg.innerHTML = banner('err', e.message); }
+  });
+
+  document.getElementById('btnReconfigurar').addEventListener('click', () => {
+    if (!confirm('Esto vacía las bolillas que ya salieron. ¿Seguro?')) return;
+    document.getElementById('orgConfigBox').style.display = 'block';
+    document.getElementById('orgControlesBox').style.display = 'none';
+    actualizarCampoRepeticiones();
+  });
+
+  function mostrarControlesOrganizador(){
+    document.getElementById('orgControlesBox').style.display = 'block';
+    document.getElementById('cagePanel').style.display = 'block';
+    document.getElementById('boardPanel').style.display = 'block';
+    document.getElementById('vozBox').style.display = 'block';
+    document.getElementById('verificarSerieBox').style.display = estado?.sorteoBingoId ? 'block' : 'none';
+    document.getElementById('btnExtraer').disabled = estado?.estado === 'FINALIZADO';
+    document.getElementById('btnExtraer').textContent = estado?.estado === 'PAUSADO' ? 'Reanudar extracción' : 'Extraer bolilla';
+    const enlaceEspectador = sorteoToken
+      ? `${window.location.origin}${window.location.pathname}?modo=espectador&sorteo=${encodeURIComponent(sorteoToken)}`
+      : '';
+    document.getElementById('linkCompartir').innerHTML = enlaceEspectador
+      ? `Link para espectador:<br><a href="${enlaceEspectador}" target="_blank" style="color:inherit;word-break:break-all">${enlaceEspectador}</a>`
+      : '';
+    construirCage();
+    if (sorteoToken) conectarWs(sorteoToken);
+  }
+
+  document.getElementById('btnExtraer').addEventListener('click', extraerBolilla);
+  async function extraerBolilla(){
+    if (!estado || estado.estado === 'FINALIZADO') return;
+    if (estado.estado === 'PAUSADO') { await reanudarExtraccion(); return; }
+    document.getElementById('btnExtraer').disabled = true;
+    document.getElementById('cage').classList.add('spinning');
+    document.getElementById('currentBall').classList.remove('pop');
+    try {
+      const data = await api(`/eventos-en-vivo/${sorteoId}/extraer`, { method:'POST', token: orgToken });
+      setTimeout(() => {
+        document.getElementById('cage').classList.remove('spinning');
+        estado = data.tablero;
+        mostrarBolillaGrande(data.numero);
+        cantar(data.numero);
+        pintarEstado(estado);
+        document.getElementById('btnExtraer').disabled = estado.estado !== 'EN_CURSO';
+        if (estado.estado === 'FINALIZADO') pararAutoplay();
+      }, 700);
+    } catch (e) {
+      document.getElementById('cage').classList.remove('spinning');
+      document.getElementById('btnExtraer').disabled = false;
+      document.getElementById('btnExtraer').textContent = 'Extraer bolilla';
+      alert(e.message);
+    }
+  }
+
+  document.getElementById('btnReiniciar').addEventListener('click', async () => {
+    if (!confirm('¿Vaciar todas las bolillas y volver a jugar con las mismas series y cartones?')) return;
+    pararAutoplay();
+    try {
+      estado = await api(`/eventos-en-vivo/${sorteoId}/reiniciar`, { method:'POST', token: orgToken });
+      document.getElementById('currentBall').classList.add('empty'); document.getElementById('currentBall').classList.remove('pop','wide');
+      document.getElementById('currentBall').textContent = 'esperando';
+      document.getElementById('btnExtraer').disabled = false;
+      document.getElementById('btnExtraer').textContent = 'Extraer bolilla';
+      document.getElementById('winnerBanner').classList.remove('show');
+      pintarEstado(estado);
+    } catch (e) { alert(e.message); }
+  });
+  async function reanudarExtraccion() {
+    try {
+      estado = await api(`/eventos-en-vivo/${sorteoId}/reanudar`, { method:'POST', token:orgToken });
+      document.getElementById('btnExtraer').disabled = false;
+      document.getElementById('btnExtraer').textContent = 'Extraer bolilla';
+      pintarEstado(estado);
+    } catch(e) { alert(e.message); }
+  }
+
+  const autoplayBtn = document.getElementById('autoplayBtn');
+  autoplayBtn.addEventListener('click', () => autoplay ? pararAutoplay() : arrancarAutoplay());
+  function arrancarAutoplay(){
+    autoplay = true; autoplayBtn.textContent = '⏸ Pausar'; autoplayBtn.classList.add('active');
+    clearInterval(autoTimer);
+    autoTimer = setInterval(() => { if (!document.getElementById('btnExtraer').disabled) extraerBolilla(); }, autoplaySeconds*1000);
+  }
+  function pararAutoplay(){
+    autoplay = false; autoplayBtn.textContent = '▶ Automático'; autoplayBtn.classList.remove('active');
+    clearInterval(autoTimer);
+  }
+  document.getElementById('speedRange').addEventListener('input', (e) => {
+    autoplaySeconds = parseFloat(e.target.value);
+    document.getElementById('speedVal').textContent = autoplaySeconds.toFixed(1);
+    if (autoplay) arrancarAutoplay();
+  });
+  document.getElementById('volRange').addEventListener('input', (e) => {
+    voiceVolume = parseInt(e.target.value)/100;
+    document.getElementById('volVal').textContent = e.target.value;
+  });
+
+  /* ---------- espectador ---------- */
+  document.getElementById('btnConectarEspectador').addEventListener('click', async () => {
+    const token = document.getElementById('espectadorToken').value.trim();
+    const msg = document.getElementById('espectadorMsg');
+    if (!token) return;
+    try {
+      const data = await api(`/vivo/${token}`);
+      sorteoToken = token; estado = data;
+      document.getElementById('tituloSorteo').textContent = data.titulo;
+      document.getElementById('cagePanel').style.display = 'block';
+      document.getElementById('boardPanel').style.display = 'block';
+      document.getElementById('vozBox').style.display = 'block';
+      document.querySelectorAll('#vozBox .field').forEach((f,i) => { if(i < 2) f.style.display='none'; });
+      document.getElementById('serieEspectadorBox').style.display = data.sorteoBingoId ? 'block' : 'none';
+      construirCage();
+      pintarEstado(estado);
+      msg.innerHTML = banner('ok', 'Conectado. Esperando bolillas...');
+      conectarWs(token);
+    } catch (e) { msg.innerHTML = banner('err', e.message); }
+  });
+
+  function conectarWs(token){
+    if (ws) ws.close();
+    const wsUrl = API.replace(/^http/, 'ws') + '/ws?sorteo=' + encodeURIComponent(token);
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (ev) => {
+        let evt; try { evt = JSON.parse(ev.data); } catch(e){ return; }
+        if (evt.tipo === 'reclamo') {
+          mostrarReclamo(evt);
+          if (evt.estadoEvento === 'PAUSADO') {
+            if (estado) estado.estado = 'PAUSADO';
+            pararAutoplay();
+            document.getElementById('btnExtraer').disabled = false;
+            document.getElementById('btnExtraer').textContent = 'Reanudar extracción';
+          }
+          return;
+        }
+        if (evt.tipo !== 'bolilla') return;
+        estado = evt;
+        if (evt.accion === 'extraida' && typeof evt.numero === 'number') {
+          document.getElementById('cage').classList.add('spinning');
+          setTimeout(() => {
+            document.getElementById('cage').classList.remove('spinning');
+            mostrarBolillaGrande(evt.numero);
+            cantar(evt.numero);
+            pintarEstado(estado);
+          }, 500);
+        } else {
+          if (evt.accion === 'reiniciado') {
+            seriesEspectador.forEach(data => { data.marcas = {}; });
+            renderSeriesEspectador();
+            limpiarBolillaCentral();
+          }
+          if (evt.accion === 'reanudado' && modoPantalla === 'organizador') {
+            document.getElementById('btnExtraer').disabled = false;
+            document.getElementById('btnExtraer').textContent = 'Extraer bolilla';
+          }
+          pintarEstado(estado);
+        }
+      };
+    } catch(e){ /* sin WS igual se puede recargar a mano */ }
+  }
+
+  const seriesEspectador = new Map();
+  let serieActivaNumero = null;
+  let simboloMarca = '🌱';
+  function htmlCartones(data, editable=true){
+    const marcas = data.marcas || {};
+    return `<section class="live-serie" data-serie="${data.numeroSerie}">
+      <div class="live-serie-head"><strong>Serie ${String(data.numeroSerie).padStart(3,'0')}</strong>${editable?`<button class="btn btn-ghost serie-remove" data-quitar-serie="${data.numeroSerie}">Quitar</button>`:''}</div>
+      <div class="live-cards">${data.cartones.map(c => `<div class="live-card"><strong>Cartón ${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => {
+        if(n===null) return '<span class="live-cell blank"></span>';
+        const marcada=(marcas[c.id]||[]).includes(n);
+        return `<button class="live-cell ${marcada?'mark':''} ${marcada&&simboloMarca!=='🌱'?'symbol-only':''}" ${editable?'':'disabled'} data-carton="${c.id}" data-numero="${n}"><span class="cell-number">${n}</span>${marcada?`<span class="mark-symbol">${simboloMarca}</span>`:''}</button>`;
+      }).join('')}</div></div>`).join('')}</div>
+    </section>`;
+  }
+  function renderSeriesEspectador(){
+    document.getElementById('cartonesEnVivo').innerHTML=[...seriesEspectador.values()].map(data=>htmlCartones(data,true)).join('');
+    actualizarSelectReclamo();
+  }
+  function actualizarSelectReclamo(){
+    const serieSelect=document.getElementById('reclamoSerie');
+    const valorActual=serieSelect.value;
+    serieSelect.innerHTML=seriesEspectador.size
+      ? [...seriesEspectador.keys()].map(n=>`<option value="${n}">Serie ${String(n).padStart(3,'0')}</option>`).join('')
+      : '<option value="">Agregá una serie</option>';
+    if(seriesEspectador.has(Number(valorActual)))serieSelect.value=valorActual;
+    else if(serieActivaNumero&&seriesEspectador.has(serieActivaNumero))serieSelect.value=String(serieActivaNumero);
+    actualizarSelectCarton();
+  }
+  function actualizarSelectCarton(){
+    const numeroSerie=Number(document.getElementById('reclamoSerie').value);
+    const data=seriesEspectador.get(numeroSerie);
+    document.getElementById('reclamoCarton').innerHTML=data
+      ? data.cartones.map(c=>`<option value="${c.posicion}">Cartón ${c.posicion}</option>`).join('')
+      : '<option value="">Elegí una serie</option>';
+  }
+  document.getElementById('reclamoSerie').addEventListener('change',()=>{serieActivaNumero=Number(document.getElementById('reclamoSerie').value)||null;actualizarSelectCarton();});
+  function pintarCartones(data, editable){
+    document.getElementById('cartonesEnVivo').innerHTML=htmlCartones(data,editable);
+  }
+  async function agregarSerieEspectador(){
+    const numeroSerie=Number(document.getElementById('serieReingreso').value);
+    if(!Number.isInteger(numeroSerie)||numeroSerie<1){alert('Ingresá un número de serie válido');return;}
+    try{
+      const data=await api(`/vivo/${sorteoToken}/mi-serie?numeroSerie=${numeroSerie}`);
+      seriesEspectador.set(numeroSerie,data); serieActivaNumero=numeroSerie;
+      renderSeriesEspectador(); document.getElementById('serieReingreso').value='';
+    }catch(e){alert(e.message);}
+  }
+  document.getElementById('btnCargarSerieEspectador').addEventListener('click',agregarSerieEspectador);
+  document.getElementById('serieReingreso').addEventListener('keydown',e=>{if(e.key==='Enter')agregarSerieEspectador();});
+  document.getElementById('markPaletteVivo').addEventListener('click',e=>{
+    const boton=e.target.closest('[data-mark]'); if(!boton)return;
+    simboloMarca=boton.dataset.mark;
+    document.querySelectorAll('#markPaletteVivo .mark-choice').forEach(b=>b.classList.toggle('active',b===boton));
+    renderSeriesEspectador();
+  });
+  document.getElementById('cartonesEnVivo').addEventListener('click',async e=>{
+    const quitar=e.target.closest('[data-quitar-serie]');
+    if(quitar){seriesEspectador.delete(Number(quitar.dataset.quitarSerie));renderSeriesEspectador();return;}
+    const celda=e.target.closest('.live-cell[data-numero]'); if(!celda)return;
+    const numeroSerie=Number(celda.closest('[data-serie]').dataset.serie);
+    const data=seriesEspectador.get(numeroSerie); if(!data)return;
+    serieActivaNumero=numeroSerie;
+    const id=celda.dataset.carton,n=Number(celda.dataset.numero);
+    data.marcas=data.marcas||{}; data.marcas[id]=data.marcas[id]||[];
+    data.marcas[id]=data.marcas[id].includes(n)?data.marcas[id].filter(x=>x!==n):[...data.marcas[id],n];
+    renderSeriesEspectador();
+    try{await api(`/vivo/${sorteoToken}/mi-serie/marcas`,{method:'PUT',body:{numeroSerie,marcas:data.marcas}});}
+    catch(err){alert(err.message);}
+  });
+  function mostrarReclamo(evt){
+    const panel=document.getElementById('reclamoPublico');
+    const extraidas=new Set(evt.bolillas||[]),c=evt.carton;
+    const participante=evt.participante?` · ${escapeHtml(evt.participante)}`:'';
+    panel.innerHTML=`<div class="claim-title">🏆 ${evt.reclamo==='BINGO'?'BINGO':'LÍNEA'} VALIDADO</div>
+      <div class="claim-meta">Serie ${String(evt.numeroSerie).padStart(3,'0')} · Cartón ${evt.numeroCarton}${participante}</div>
+      <div class="live-cards"><div class="live-card"><strong>Cartón ${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n=>n===null?'<span class="live-cell blank"></span>':`<span class="live-cell ${extraidas.has(n)?'mark':''}"><span class="cell-number">${n}</span>${extraidas.has(n)?'<span class="mark-symbol">✓</span>':''}</span>`).join('')}</div></div></div>`;
+    panel.classList.add('show');
+    panel.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  async function cantarReclamo(tipo){
+    try{
+      const numeroSerie=Number(document.getElementById('reclamoSerie').value);
+      const numeroCarton=Number(document.getElementById('reclamoCarton').value);
+      if(!numeroSerie||!numeroCarton)throw new Error('Elegí la serie y el cartón con el que ganaste');
+      const resultado=await api(`/vivo/${sorteoToken}/cantar`,{method:'POST',body:{tipo,numeroSerie,numeroCarton}});
+      mostrarReclamo(resultado);
+      if(resultado.estadoEvento==='PAUSADO'&&estado)estado.estado='PAUSADO';
+    }catch(e){alert(e.message);}
+  }
+  document.getElementById('btnCantarLinea').onclick=()=>cantarReclamo('LINEA');
+  document.getElementById('btnCantarBingo').onclick=()=>cantarReclamo('BINGO');
+  document.getElementById('btnVerificarSerie').addEventListener('click',async()=>{ try{
+    const numeroSerie=Number(document.getElementById('serieControlNumero').value),numeroCarton=Number(document.getElementById('cartonControlNumero').value);
+    if(!numeroSerie||!numeroCarton)throw new Error('Ingresá la serie y el número de cartón');
+    const data=await api(`/eventos-en-vivo/${sorteoId}/series/${numeroSerie}`,{token:orgToken});
+    const carton=data.cartones.find(c=>c.posicion===numeroCarton);if(!carton)throw new Error(`El cartón ${numeroCarton} no pertenece a esa serie`);
+    pintarCartones({...data,cartones:[carton]},false);
+  }catch(e){alert(e.message);} });
+
+  /* ---------- render compartido ---------- */
+  function construirCage(){
+    const cage = document.getElementById('cage');
+    cage.innerHTML = '';
+    const rango = (estado && estado.rangoMax) || 90;
+    for (let i=0;i<22;i++){
+      const b = document.createElement('div');
+      b.className = 'mini-ball';
+      const angle = Math.random()*2*Math.PI, r = 55+Math.random()*35;
+      b.style.left = (110 + Math.cos(angle)*r - 11)+'px';
+      b.style.top = (110 + Math.sin(angle)*r - 11)+'px';
+      b.style.animationDuration = (2.4 + Math.random()*1.6).toFixed(2)+'s';
+      b.style.animationDelay = (Math.random()*2).toFixed(2)+'s';
+      b.textContent = pad(Math.floor(Math.random()*rango)+1, rango);
+      cage.appendChild(b);
+    }
+  }
+
+  function limpiarBolillaCentral(){
+    const el = document.getElementById('currentBall');
+    el.classList.add('empty');
+    el.classList.remove('pop', 'wide');
+    el.textContent = 'esperando';
+  }
+
+  function mostrarBolillaGrande(numero){
+    const el = document.getElementById('currentBall');
+    el.classList.remove('empty');
+    el.textContent = pad(numero, (estado && estado.rangoMax) || 90);
+    el.classList.toggle('wide', cifras((estado && estado.rangoMax) || 90) >= 3);
+    void el.offsetWidth;
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
+
+  function pintarEstado(e){
+    if (!e) return;
+    const rango = e.rangoMax;
+    const bolillas = e.bolillas || [];
+    const conteos = e.conteos || {};
+
+    // historial
+    const hist = document.getElementById('historial');
+    hist.innerHTML = '';
+    const last5 = bolillas.slice(-5).reverse();
+    for (let i=0;i<5;i++){
+      const d = document.createElement('div');
+      d.className = 'hist-ball' + (last5[i] ? ' filled' : '');
+      d.textContent = last5[i] ? pad(last5[i], rango) : '·';
+      hist.appendChild(d);
+    }
+
+    // tablero
+    const board = document.getElementById('board');
+    const title = document.getElementById('boardTitle');
+    if (e.modo === 'BINGO') {
+      title.textContent = `Tablero — 1 a ${rango}`;
+      board.className = 'board';
+      board.innerHTML = '';
+      const called = new Set(bolillas);
+      const last = bolillas[bolillas.length-1];
+      for (let n=1;n<=rango;n++){
+        const el = document.createElement('div');
+        el.className = 'n' + (called.has(n) ? ' called' : '') + (n===last ? ' last' : '');
+        el.textContent = pad(n, rango);
+        board.appendChild(el);
+      }
+    } else {
+      title.textContent = `Bolillero — números que van saliendo (1 a ${rango})`;
+      board.className = 'rep-grid';
+      board.innerHTML = '';
+      const th = e.umbralRepeticion || 3;
+      for (let n=1;n<=rango;n++){
+        const c = conteos[n] || 0;
+        let cls = 'n';
+        if (c>0 && c<th-1) cls += ' c1';
+        else if (c===th-1 && th>1) cls += ' c2';
+        if (e.ganadorNumero===n) cls += ' win';
+        const el = document.createElement('div');
+        el.className = cls;
+        el.innerHTML = pad(n, rango) + (c>0 ? '<span class="cnt">×'+c+'</span>' : '');
+        board.appendChild(el);
+      }
+    }
+
+    // ganador
+    const wb = document.getElementById('winnerBanner');
+    if (e.estado === 'FINALIZADO') {
+      wb.classList.add('show');
+      wb.textContent = e.modo === 'REPETICION' && e.ganadorNumero
+        ? `🏆 ¡El número ${pad(e.ganadorNumero, rango)} ganó! Salió ${conteos[e.ganadorNumero]} veces.`
+        : `🏁 Salieron todas las bolillas del tablero.`;
+    } else {
+      wb.classList.remove('show');
+    }
+  }
+
+  /* ---------- voz ---------- */
+  let voicesCache = [];
+  function loadVoices(){ voicesCache = window.speechSynthesis ? window.speechSynthesis.getVoices() : []; }
+  if ('speechSynthesis' in window) { loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+  function pickVoice(gender){
+    const esVoices = voicesCache.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+    const pool = esVoices.length ? esVoices : voicesCache;
+    const femaleHints=['female','mujer','mónica','monica','paulina','lucia','lucía','helena','laura','elvira','conchita','isabel','sabina'];
+    const maleHints=['male','hombre','jorge','diego','carlos','enrique','pablo','juan','miguel'];
+    const hints = gender==='femenina' ? femaleHints : maleHints;
+    return pool.find(v => hints.some(h => v.name.toLowerCase().includes(h))) || pool[0] || null;
+  }
+  function cantar(n){
+    const gender = document.getElementById('voiceGender').value;
+    if (gender==='ninguna' || !('speechSynthesis' in window)) return;
+    const utter = new SpeechSynthesisUtterance('El número ' + numeroATexto(n));
+    const v = pickVoice(gender);
+    if (v) utter.voice = v;
+    utter.pitch = gender==='femenina' ? 1.15 : 0.85;
+    utter.rate = 0.95;
+    utter.volume = voiceVolume;
+    utter.lang = (v && v.lang) || 'es-ES';
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+  }
+
+  async function inicializarDesdeEnlace() {
+    const params = new URLSearchParams(window.location.search);
+    const valorSorteo = params.get('sorteo');
+    if (params.get('modo') === 'espectador' && valorSorteo) {
+      modoPantalla = 'espectador';
+      document.querySelectorAll('#modeToggle button').forEach(x => x.classList.toggle('active', x.dataset.modo === 'espectador'));
+      document.getElementById('orgLoginBox').style.display = 'none';
+      document.getElementById('orgSelectBox').style.display = 'none';
+      document.getElementById('espectadorBox').style.display = 'block';
+      document.getElementById('espectadorToken').value = valorSorteo;
+      document.getElementById('btnConectarEspectador').click();
+      document.getElementById('espectadorBox').style.display = 'none';
+      document.getElementById('modeToggle').style.display = 'none';
+      document.querySelector('.api-bar').style.display = 'none';
+      return;
+    }
+
+    const tokenGuardado = sessionStorage.getItem('tombolaOrgToken');
+    if (!tokenGuardado) return;
+    orgToken = tokenGuardado;
+    document.getElementById('orgLoginBox').style.display = 'none';
+    document.getElementById('orgSelectBox').style.display = 'block';
+    await cargarMisBingos();
+    const eventoDesdeEnlace = valorSorteo ? misBingos.find(s => s.id === valorSorteo) : null;
+    if (eventoDesdeEnlace?.sorteoBingoId && sorteosGuardados.some(s => s.id === eventoDesdeEnlace.sorteoBingoId)) {
+      document.getElementById('selectSorteo').value = eventoDesdeEnlace.sorteoBingoId;
+      document.getElementById('btnCargarSorteo').click();
+    }
+  }
+  inicializarDesdeEnlace();
+})();
+</script>
+</body>
+</html>

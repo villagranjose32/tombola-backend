@@ -1,0 +1,48 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tombola
+      POSTGRES_PASSWORD: tombola
+      POSTGRES_DB: tombola
+    ports:
+      - "5433:5432"
+    volumes:
+      - tombola_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tombola"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://tombola:tombola@db:5432/tombola?schema=public"
+      JWT_SECRET: ${JWT_SECRET:-cambiame-por-un-secreto-largo-y-random}
+      PORT: 4000
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tombola.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin1234}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "4000:4000"
+
+  frontend:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
+volumes:
+  tombola_pgdata:

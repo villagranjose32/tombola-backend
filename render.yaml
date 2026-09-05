@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: bingo-virtual
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bingo-virtual-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: bingo-virtual-db
+    plan: free
+    databaseName: bingo_virtual
+    user: bingo_virtual

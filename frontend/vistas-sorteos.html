@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo Virtual — Conectado al backend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14231C; --felt:#1E3B2A; --felt-2:#25462F; --paper:#F2E9D8; --paper-2:#E9DEC6;
+    --marquee:#E3A23B; --stub:#BD4030; --chalk:#F6F1E4; --teal:#4FA490;
+    --line: rgba(246,241,228,0.18); --line-dark: rgba(20,35,28,0.14); --radius:4px;
+    --disp:'Anton', sans-serif; --body:'Inter', sans-serif; --mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--ink); color:var(--chalk); font-family:var(--body); -webkit-font-smoothing:antialiased; }
+  ::selection{ background:var(--marquee); color:var(--ink); }
+  .marquee-bar{ background: repeating-linear-gradient(90deg, var(--marquee) 0 22px, #d6922f 22px 24px); height:6px; }
+  header.top{ padding:22px 32px 16px; display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:1px solid var(--line); }
+  .brand{ font-family:var(--disp); font-size:26px; letter-spacing:0.5px; color:var(--paper); }
+  .brand span{ color:var(--marquee); }
+  .brand-sub{ font-family:var(--mono); font-size:11px; color:rgba(246,241,228,0.5); letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
+
+  .api-bar{ background:var(--felt-2); border-bottom:1px solid var(--line); padding:10px 32px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .api-bar label{ font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(246,241,228,0.5); }
+  .api-bar input{ background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:4px; padding:6px 10px; font-family:var(--mono); font-size:12px; width:260px; }
+  .dot{ width:8px; height:8px; border-radius:50%; background:#666; display:inline-block; margin-right:6px; }
+  .dot.ok{ background:var(--teal); } .dot.err{ background:var(--stub); }
+  #apiStatus{ font-family:var(--mono); font-size:11px; color:rgba(246,241,228,0.6); }
+
+  nav.stubs{ display:flex; gap:0; overflow-x:auto; padding:0 24px; background:var(--felt); border-bottom:1px solid var(--line); }
+  nav.stubs button{ font-family:var(--mono); font-size:12px; letter-spacing:0.5px; text-transform:uppercase; background:transparent; color:rgba(246,241,228,0.55); border:none; padding:16px 18px; cursor:pointer; white-space:nowrap; position:relative; border-right:1px dashed var(--line); }
+  nav.stubs button:first-child{ border-left:1px dashed var(--line); }
+  nav.stubs button .num{ color:var(--marquee); margin-right:8px; }
+  nav.stubs button.active{ color:var(--chalk); background:rgba(227,162,59,0.08); }
+  nav.stubs button.active::after{ content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--marquee); }
+  nav.stubs button:hover{ color:var(--chalk); }
+
+  main{ padding:32px 32px 80px; max-width:1180px; margin:0 auto; }
+  .view{ display:none; animation: fade .2s ease; }
+  .view.active{ display:block; }
+  @keyframes fade{ from{opacity:0;} to{opacity:1;} }
+
+  .view-head{ margin-bottom:24px; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--marquee); margin-bottom:8px; }
+  h1.view-title{ font-family:var(--disp); font-weight:400; font-size:30px; letter-spacing:0.3px; margin:0 0 6px; color:var(--paper); }
+  .view-desc{ color:rgba(246,241,228,0.6); font-size:14px; max-width:600px; line-height:1.5; }
+
+  .panel{ background:var(--felt); border:1px solid var(--line); border-radius:var(--radius); padding:22px; }
+  .panel + .panel{ margin-top:14px; }
+  .row{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+
+  .chip{ font-family:var(--mono); font-size:11px; letter-spacing:0.5px; text-transform:uppercase; padding:4px 10px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; }
+  .chip::before{ content:""; width:6px; height:6px; border-radius:50%; }
+  .chip.pending{ background:rgba(227,162,59,0.14); color:var(--marquee); } .chip.pending::before{ background:var(--marquee); }
+  .chip.ok{ background:rgba(79,164,144,0.16); color:var(--teal); } .chip.ok::before{ background:var(--teal); }
+  .chip.off{ background:rgba(189,64,48,0.14); color:#e18072; } .chip.off::before{ background:var(--stub); }
+
+  button.btn{ font-family:var(--body); font-weight:600; font-size:13px; border:none; border-radius:var(--radius); cursor:pointer; padding:10px 16px; transition:transform .1s, filter .1s; }
+  button.btn:active{ transform:translateY(1px); }
+  .btn-primary{ background:var(--marquee); color:var(--ink); } .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-ghost{ background:transparent; color:var(--chalk); border:1px solid var(--line); } .btn-ghost:hover{ border-color:rgba(246,241,228,0.4); }
+  .btn-danger{ background:transparent; color:#e18072; border:1px solid rgba(189,64,48,0.4); } .btn-danger:hover{ background:rgba(189,64,48,0.1); }
+  .btn-sm{ padding:7px 12px; font-size:11.5px; }
+  button:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  table{ width:100%; border-collapse:collapse; }
+  th{ text-align:left; font-family:var(--mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; color:rgba(246,241,228,0.45); padding:0 10px 10px; font-weight:500; }
+  td{ padding:12px 10px; border-top:1px solid var(--line); font-size:13px; }
+  .muted{ color:rgba(246,241,228,0.5); } .mono{ font-family:var(--mono); }
+
+  .grid-sorteos{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:14px; }
+  .sorteo-card{ background:var(--felt); border:1px solid var(--line); border-radius:var(--radius); padding:18px; display:flex; flex-direction:column; gap:10px; }
+  .sorteo-card .tipo{ font-family:var(--mono); font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--marquee); }
+  .sorteo-card h3{ margin:0; font-family:var(--disp); font-weight:400; font-size:19px; color:var(--paper); letter-spacing:0.3px; }
+  .sorteo-card .meta{ font-size:12px; color:rgba(246,241,228,0.55); word-break:break-all; }
+  .add-card{ border:1px dashed var(--line); border-radius:var(--radius); display:flex; align-items:center; justify-content:center; color:rgba(246,241,228,0.5); font-family:var(--mono); font-size:12px; letter-spacing:0.5px; min-height:110px; cursor:pointer; text-transform:uppercase; }
+  .add-card:hover{ color:var(--marquee); border-color:var(--marquee); }
+
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field.full{ grid-column:1/-1; }
+  label{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.8px; text-transform:uppercase; color:rgba(246,241,228,0.55); }
+  input, select, textarea{ background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:var(--radius); padding:9px 11px; font-family:var(--body); font-size:13px; width:100%; }
+  input:focus, select:focus, textarea:focus{ outline:2px solid var(--marquee); outline-offset:0; border-color:transparent; }
+  .type-select{ display:flex; gap:10px; }
+  .type-opt{ flex:1; border:1px solid var(--line); border-radius:var(--radius); padding:12px; cursor:pointer; text-align:center; font-family:var(--mono); font-size:11.5px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(246,241,228,0.6); }
+  .type-opt.sel{ border-color:var(--marquee); color:var(--marquee); background:rgba(227,162,59,0.08); }
+
+  .public-shell{ background:var(--felt-2); border:1px solid var(--line); border-radius:var(--radius); padding:24px; }
+  .public-head{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px; margin-bottom:18px; }
+  .link-box{ font-family:var(--mono); font-size:11.5px; background:var(--ink); border:1px solid var(--line); padding:8px 12px; border-radius:var(--radius); color:rgba(246,241,228,0.6); word-break:break-all; }
+
+  .tablero{ display:grid; grid-template-columns:repeat(10, 1fr); gap:8px; padding:6px 0; }
+  .ball{ aspect-ratio:1; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-weight:600; font-size:12.5px; cursor:pointer; border:none; color:var(--ink); }
+  .ball.libre{ background:radial-gradient(circle at 32% 28%, #6fc4b0, var(--teal)); }
+  .ball.libre:hover{ transform:scale(1.08); box-shadow:0 0 0 3px rgba(79,164,144,0.3); }
+  .ball.reservado{ background:repeating-linear-gradient(135deg, var(--marquee), var(--marquee) 4px, #d6922f 4px, #d6922f 8px); cursor:not-allowed; opacity:0.85; }
+  .ball.tomado{ background:#3a2f2a; color:rgba(246,241,228,0.35); cursor:not-allowed; text-decoration:line-through; }
+  .legend{ display:flex; gap:16px; margin-top:16px; flex-wrap:wrap; }
+  .legend-item{ display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10.5px; color:rgba(246,241,228,0.6); text-transform:uppercase; }
+  .legend-dot{ width:11px; height:11px; border-radius:50%; }
+
+  .series-grid{ display:grid; grid-template-columns:repeat(6, 1fr); gap:10px; }
+  .serie-chip{ border-radius:6px; padding:12px 8px; text-align:center; cursor:pointer; border:none; display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .serie-chip .num{ font-family:var(--disp); font-size:18px; letter-spacing:0.3px; }
+  .serie-chip .sub{ font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.85; }
+  .serie-chip.libre{ background:linear-gradient(160deg, #6fc4b0, var(--teal)); color:var(--ink); }
+  .serie-chip.libre:hover{ transform:scale(1.04); }
+  .serie-chip.reservado{ background:repeating-linear-gradient(135deg, var(--marquee), var(--marquee) 5px, #d6922f 5px, #d6922f 10px); color:var(--ink); cursor:not-allowed; opacity:0.9; }
+  .serie-chip.tomado{ background:#3a2f2a; color:rgba(246,241,228,0.35); cursor:not-allowed; }
+  .serie-chip.tomado .num{ text-decoration:line-through; }
+
+  .serie-cards{ display:grid; grid-template-columns:repeat(2, minmax(240px,1fr)); gap:14px; }
+  .bingo-card{ background:var(--paper); color:var(--ink); border-radius:6px; padding:12px 11px; border:2px solid var(--ink); }
+  .bingo-card .card-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px; }
+  .bingo-card .card-head .brand{ font-family:var(--disp); font-size:13px; color:var(--stub); }
+  .bingo-card .card-head .id{ font-family:var(--mono); font-size:9px; letter-spacing:1px; color:rgba(20,35,28,0.5); }
+  .bingo-card .cells{ display:grid; grid-template-columns:repeat(9,1fr); gap:3px; }
+  .bingo-card .cell{ aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-weight:700; font-size:11.5px; background:var(--paper-2); border-radius:3px; border:1px solid var(--line-dark); color:var(--ink); }
+  .bingo-card .cell.blank{ background:transparent; border-color:var(--line-dark); }
+
+  .winner-block{ display:flex; align-items:center; gap:18px; padding:18px 0; }
+  .winner-num{ font-family:var(--disp); font-size:22px; color:var(--marquee); background:var(--ink); min-width:70px; height:70px; padding:0 10px; border-radius:35px; display:flex; align-items:center; justify-content:center; border:3px solid var(--marquee); flex-shrink:0; word-break:break-all; text-align:center; }
+  .audit-row{ display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line); font-size:12.5px; }
+  .audit-row:first-child{ border-top:none; }
+  .audit-row .k{ color:rgba(246,241,228,0.5); font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+  .audit-row .v{ font-family:var(--mono); font-size:12px; text-align:right; word-break:break-all; }
+
+  .notice{ padding:12px 16px; border-radius:6px; font-size:13px; margin-bottom:16px; }
+  .notice.info{ background:rgba(227,162,59,0.1); border:1px solid rgba(227,162,59,0.3); color:var(--marquee); }
+  .banner{ padding:9px 13px; border-radius:6px; font-size:12.5px; margin-bottom:12px; }
+  .banner.ok{ background:rgba(79,164,144,0.15); color:var(--teal); border:1px solid rgba(79,164,144,0.3); }
+  .banner.err{ background:rgba(189,64,48,0.15); color:#e18072; border:1px solid rgba(189,64,48,0.3); }
+  .code-box{ font-family:var(--mono); background:var(--ink); border:1px solid var(--line); padding:9px 10px; border-radius:6px; word-break:break-all; font-size:10.5px; color:var(--marquee); }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:60; padding:20px; }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{ background:var(--felt); border:1px solid var(--line); border-radius:8px; padding:22px; max-width:380px; width:100%; position:relative; }
+  .modal-box h3{ font-family:var(--disp); font-weight:400; font-size:19px; color:var(--paper); margin:0 0 14px; padding-right:20px; }
+  .modal-box .field{ margin-bottom:12px; }
+  .modal-close{ position:absolute; top:14px; right:16px; background:none; border:none; color:rgba(246,241,228,0.5); cursor:pointer; font-size:18px; padding:0; }
+
+  footer.tip{ margin-top:36px; padding-top:16px; border-top:1px dashed var(--line); font-family:var(--mono); font-size:11px; color:rgba(246,241,228,0.4); }
+
+  @media (max-width:640px){
+    .form-grid{ grid-template-columns:1fr; }
+    .tablero{ grid-template-columns:repeat(6,1fr); }
+    .series-grid{ grid-template-columns:repeat(3,1fr); }
+    .serie-cards{ grid-template-columns:1fr; }
+    header.top, .api-bar{ padding-left:18px; padding-right:18px; }
+    main{ padding:22px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="marquee-bar"></div>
+<header class="top">
+  <div>
+    <div class="brand">BINGO VIRTUAL<span>.</span></div>
+    <div class="brand-sub">Conectado a un backend real</div>
+  </div>
+</header>
+
+<div class="api-bar">
+  <label>API</label>
+  <input type="text" id="apiBaseInput" value="http://localhost:4000" />
+  <button class="btn btn-ghost btn-sm" id="btnProbarApi">Probar conexión</button>
+  <span id="apiStatus"><span class="dot" id="apiDot"></span>sin probar</span>
+</div>
+
+<nav class="stubs" id="tabs">
+  <button class="active" data-view="admin"><span class="num">01</span>Admin</button>
+  <button data-view="dash"><span class="num">02</span>Panel organizador</button>
+  <button data-view="crear"><span class="num">03</span>Crear sorteo</button>
+  <button data-view="tablero"><span class="num">04</span>Tablero (rifa)</button>
+  <button data-view="series"><span class="num">05</span>Series de bingo</button>
+  <button data-view="carton"><span class="num">06</span>Descargar mi serie</button>
+  <button data-view="resultado"><span class="num">07</span>Resultado</button>
+  <button data-view="vivo"><span class="num">08</span>Sorteo en vivo</button>
+</nav>
+
+<main>
+
+  <!-- 01 ADMIN -->
+  <section class="view active" id="v-admin">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Admin</div>
+      <h1 class="view-title">Organizadores</h1>
+      <div class="view-desc">Se loguea contra <span class="mono">POST /auth/login</span> y lista/aprueba organizadores reales de la base.</div>
+    </div>
+    <div class="panel" id="adminLoginBox">
+      <div class="form-grid">
+        <div class="field"><label>Email admin</label><input id="adminEmail" type="email" placeholder="admin@tu-dominio.com"></div>
+        <div class="field"><label>Contraseña</label><input id="adminPass" type="password" autocomplete="current-password"></div>
+      </div>
+      <div id="adminLoginMsg"></div>
+      <button class="btn btn-primary" id="btnAdminLogin" style="margin-top:12px;">Ingresar como admin</button>
+    </div>
+    <div class="panel" id="adminPanel" style="display:none;">
+      <div class="row" style="margin-bottom:12px;">
+        <div class="muted mono" id="adminQuien" style="font-size:12px;"></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="btnAdminRefrescar">Refrescar</button>
+          <button class="btn btn-ghost btn-sm" id="btnAdminLogout">Cerrar sesión</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Nombre</th><th>Email</th><th>Se registró</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="adminTbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 02 DASHBOARD ORGANIZADOR -->
+  <section class="view" id="v-dash">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Organizador</div>
+      <h1 class="view-title">Tus sorteos</h1>
+      <div class="view-desc">Datos reales de <span class="mono">GET /sorteos</span>. Las acciones (publicar, cerrar, sortear) pegan directo a la API.</div>
+    </div>
+    <div class="panel" id="orgLoginBox">
+      <div class="form-grid">
+        <div class="field"><label>Email</label><input id="orgEmail" type="email" placeholder="club@ejemplo.com"></div>
+        <div class="field"><label>Contraseña</label><input id="orgPass" type="password"></div>
+      </div>
+      <div id="orgLoginMsg"></div>
+      <div class="row" style="margin-top:12px; justify-content:flex-start; gap:10px;">
+        <button class="btn btn-primary" id="btnOrgLogin">Ingresar</button>
+        <button class="btn btn-ghost" id="btnMostrarRegistro">Crear cuenta de organizador</button>
+      </div>
+    </div>
+    <div class="panel" id="orgRegistroBox" style="display:none;">
+      <div class="form-grid">
+        <div class="field full"><label>Nombre / organización</label><input id="regNombre" type="text"></div>
+        <div class="field"><label>Email</label><input id="regEmail" type="email"></div>
+        <div class="field"><label>Contraseña (mín. 8)</label><input id="regPass" type="password"></div>
+      </div>
+      <div id="orgRegistroMsg"></div>
+      <div class="row" style="margin-top:12px; justify-content:flex-start; gap:10px;">
+        <button class="btn btn-primary" id="btnRegistrar">Registrarme</button>
+        <button class="btn btn-ghost" id="btnVolverLogin">Volver a ingresar</button>
+      </div>
+    </div>
+    <div id="orgPanel" style="display:none;">
+      <div class="row" style="margin-bottom:12px;">
+        <div class="muted mono" id="orgQuien" style="font-size:12px;"></div>
+        <button class="btn btn-ghost btn-sm" id="btnOrgLogout">Cerrar sesión</button>
+      </div>
+      <div id="orgPendienteNotice"></div>
+      <div class="grid-sorteos" id="misSorteosGrid"></div>
+    </div>
+  </section>
+
+  <!-- 03 CREAR SORTEO -->
+  <section class="view" id="v-crear">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Organizador</div>
+      <h1 class="view-title">Configurar sorteo</h1>
+      <div class="view-desc">Crea (<span class="mono">POST /sorteos</span>) y publica (<span class="mono">POST /sorteos/:id/publicar</span>) en un solo paso — ahí se generan los números o las series reales.</div>
+    </div>
+    <div id="crearNotice"></div>
+    <div class="panel" id="crearForm">
+      <div class="field full" style="margin-bottom:18px;">
+        <label>Tipo de sorteo</label>
+        <div class="type-select">
+          <div class="type-opt sel" data-tipo="RIFA">Rifa</div>
+          <div class="type-opt" data-tipo="BINGO">Bingo</div>
+          <div class="type-opt" data-tipo="SORTEO_SIMPLE">Sorteo simple</div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field full"><label>Título</label><input id="fTitulo" type="text" value="Viaje a Bariloche 2027"></div>
+        <div class="field full"><label>Descripción</label><textarea id="fDescripcion" rows="2">Rifa a beneficio de la Sub-15.</textarea></div>
+
+        <div class="field" data-for="RIFA"><label>Cantidad de números</label><input id="fCantidadNumeros" type="number" value="100" min="2"></div>
+        <div class="field" data-for="RIFA"><label>Cantidad de ganadores</label><input id="fGanadoresRifa" type="number" value="1" min="1"></div>
+
+        <div class="field" data-for="BINGO" style="display:none;">
+          <label>Cartones por serie</label>
+          <select id="fCartonesPorSerie">
+            <option value="3">3 cartones por serie</option>
+            <option value="4">4 cartones por serie</option>
+            <option value="5" selected>5 cartones por serie</option>
+            <option value="6">6 cartones por serie (cubre 1–90 sin repetir)</option>
+          </select>
+        </div>
+        <div class="field" data-for="BINGO" style="display:none;"><label>Cantidad de series a generar</label><input id="fCantidadSeries" type="number" value="20" min="1"></div>
+
+        <div class="field" data-for="SORTEO_SIMPLE" style="display:none;"><label>Cantidad de ganadores</label><input id="fGanadoresSimple" type="number" value="1" min="1"></div>
+
+        <div class="field"><label>Cierre de inscripción (opcional)</label><input id="fFechaCierre" type="datetime-local"></div>
+      </div>
+      <div id="crearMsg" style="margin-top:14px;"></div>
+      <div class="row" style="margin-top:6px;">
+        <div class="muted" style="font-size:12px;">Se crea como borrador y se publica al toque.</div>
+        <button class="btn btn-primary" id="btnCrearPublicar">Crear y publicar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 TABLERO (RIFA / SORTEO SIMPLE) -->
+  <section class="view" id="v-tablero">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Público, sin cuenta</div>
+      <h1 class="view-title">Tablero público</h1>
+      <div class="view-desc">Pegale el link_token de una rifa (o sorteo simple) publicado. Tocar un número lo reserva 10 minutos de verdad en la base.</div>
+    </div>
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="flex:1; min-width:220px;"><label>Link token</label><input id="tableroToken" type="text" placeholder="ej: viaje-a-bariloche-2027-a1b2c3d4"></div>
+        <button class="btn btn-primary" id="btnCargarTablero">Cargar tablero</button>
+      </div>
+    </div>
+    <div class="public-shell" id="tableroShell" style="display:none;">
+      <div class="public-head">
+        <div>
+          <h2 id="tableroTitulo" style="font-family:var(--disp); font-weight:400; font-size:21px; color:var(--paper); margin:0 0 4px;"></h2>
+          <div class="muted" id="tableroDesc" style="font-size:12.5px; max-width:460px;"></div>
+        </div>
+        <div class="link-box" id="tableroEstadoBox"></div>
+      </div>
+      <div id="tableroContenido"></div>
+    </div>
+  </section>
+
+  <!-- 05 SERIES DE BINGO -->
+  <section class="view" id="v-series">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Público, sin cuenta</div>
+      <h1 class="view-title">Elegí tu serie</h1>
+      <div class="view-desc">Acá no se elige un cartón suelto: se elige una <strong style="color:var(--paper);">serie</strong> completa, generada de verdad al publicar el bingo.</div>
+    </div>
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="flex:1; min-width:220px;"><label>Link token</label><input id="seriesToken" type="text" placeholder="ej: bingo-solidario-agosto-x9k2f8"></div>
+        <button class="btn btn-primary" id="btnCargarSeries">Cargar series</button>
+      </div>
+    </div>
+    <div class="public-shell" id="seriesShell" style="display:none;">
+      <div class="public-head">
+        <div>
+          <h2 id="seriesTitulo" style="font-family:var(--disp); font-weight:400; font-size:21px; color:var(--paper); margin:0 0 4px;"></h2>
+          <div class="muted" id="seriesDesc" style="font-size:12.5px; max-width:460px;"></div>
+        </div>
+        <div class="link-box" id="seriesEstadoBox"></div>
+      </div>
+      <div class="series-grid" id="series-grid"></div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--teal);"></span> Libre</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--marquee);"></span> Reservada (10 min)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#3a2f2a;"></span> Vendida</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 DESCARGAR MI SERIE -->
+  <section class="view" id="v-carton">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Público, sin cuenta</div>
+      <h1 class="view-title">Descargar mi serie</h1>
+      <div class="view-desc">Ingresá el link del sorteo y el número de tu serie para ver los cartones y descargarlos en PDF.</div>
+    </div>
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="form-grid">
+        <div class="field"><label>Link de ingreso</label><input id="miSerieToken" type="text" placeholder="pegá el link del sorteo o su token"></div>
+        <div class="field"><label>Número de serie</label><input id="miSerieNumero" type="number" min="1" step="1" placeholder="ej: 12"></div>
+      </div>
+      <div id="miSerieMsg" style="margin-top:10px;"></div>
+      <div class="row" style="margin-top:10px; justify-content:flex-start; gap:10px;">
+        <button class="btn btn-primary" id="btnCargarMiSerie">Cargar mi serie</button>
+        <button class="btn btn-ghost" id="btnDescargarPdf" style="display:none;">Descargar serie (PDF)</button>
+      </div>
+    </div>
+    <div id="miSerieCartones"></div>
+  </section>
+
+  <!-- 07 RESULTADO -->
+  <section class="view" id="v-resultado">
+    <div class="view-head">
+      <div class="eyebrow">Vista · Público</div>
+      <h1 class="view-title">Resultado y auditoría</h1>
+      <div class="view-desc">Cualquiera puede pegar el link_token acá y verificar que el sorteo no se manipuló — recalculamos el hash en vivo.</div>
+    </div>
+    <div class="panel" style="margin-bottom:14px;">
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="flex:1; min-width:220px;"><label>Link token</label><input id="resultadoToken" type="text" placeholder="ej: netflix-1-año-seguidores-ig-a1b2c3d4"></div>
+        <button class="btn btn-primary" id="btnVerResultado">Ver resultado</button>
+      </div>
+    </div>
+    <div class="panel" id="resultadoPanel" style="display:none;"></div>
+  </section>
+
+  <section class="view" id="v-vivo">
+    <div class="view-head">
+      <div class="eyebrow">Herramienta independiente</div>
+      <h1 class="view-title">Sorteo en vivo</h1>
+      <div class="view-desc">Creá un bolillero universal sin relacionarlo con rifas, bingos ni sorteos simples. Configurá los números, la modalidad y compartí una pantalla pública.</div>
+    </div>
+    <div class="panel">
+      <button class="btn btn-primary" onclick="abrirBolillero()">Administrar sorteos en vivo</button>
+    </div>
+  </section>
+
+  <footer class="tip">Conectado en vivo a la API — nada de esto es data de mentira.</footer>
+</main>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+/* ================== estado global ================== */
+let API = document.getElementById('apiBaseInput').value.replace(/\/$/, '');
+if (!['localhost','127.0.0.1'].includes(window.location.hostname)) {
+  API = window.location.origin;
+  document.getElementById('apiBaseInput').value = API;
+}
+let adminToken = null, adminInfo = null;
+let orgToken = null, orgInfo = null;
+let misSorteosCache = [];
+let tipoSeleccionado = 'RIFA';
+let tableroTokenActual = null, seriesTokenActual = null;
+let tableroOrganizadorSorteoId = null;
+let tableroOrganizadorTipo = null;
+let wsTablero = null, wsSeries = null;
+
+/* ================== helper de fetch ================== */
+async function api(path, { method = 'GET', body, token } = {}) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error((data && data.error) || ('Error HTTP ' + res.status));
+  return data;
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function banner(tipo, msg) { return `<div class="banner ${tipo}">${escapeHtml(msg)}</div>`; }
+function urlPublicaSorteo(s) {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('sorteo', s.linkToken);
+  url.searchParams.set('tipo', s.tipo);
+  return url.toString();
+}
+async function copiarTexto(texto, boton) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    const original = boton.textContent;
+    boton.textContent = 'Copiado';
+    setTimeout(() => { boton.textContent = original; }, 1400);
+  } catch (e) {
+    window.prompt('Copiá este enlace:', texto);
+  }
+}
+
+/* ================== barra de API ================== */
+document.getElementById('apiBaseInput').addEventListener('change', (e) => { API = e.target.value.replace(/\/$/, ''); });
+document.getElementById('btnProbarApi').addEventListener('click', async () => {
+  const dot = document.getElementById('apiDot'), status = document.getElementById('apiStatus');
+  try {
+    await api('/health');
+    dot.className = 'dot ok'; status.lastChild.textContent = ' conectado';
+  } catch (e) {
+    dot.className = 'dot err'; status.lastChild.textContent = ' sin conexión — ¿está corriendo el backend?';
+  }
+});
+
+/* ================== tabs ================== */
+const tabButtons = document.querySelectorAll('#tabs button');
+const views = document.querySelectorAll('.view');
+function irATab(view) {
+  tabButtons.forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+  views.forEach((v) => v.classList.toggle('active', v.id === 'v-' + view));
+  if (view === 'crear') refrescarNoticeCrear();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+tabButtons.forEach((b) => b.addEventListener('click', () => irATab(b.dataset.view)));
+
+/* ================== modal genérico ================== */
+function openModal(html) {
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+  document.getElementById('modalBox').innerHTML = '';
+}
+document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target.id === 'modalOverlay') closeModal(); });
+function modalError(msg) {
+  const el = document.getElementById('modalMsg');
+  if (el) el.innerHTML = banner('err', msg);
+}
+
+/* flujo genérico de reservar + confirmar (número, serie o inscripción) */
+function flujoReserva({ titulo, reservarPath, confirmarPath, onDone }) {
+  openModal(`
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h3>${escapeHtml(titulo)}</h3>
+    <div id="modalMsg"></div>
+    <div class="field"><label>Teléfono (opcional)</label><input id="mContacto" type="tel" placeholder="11 1234-5678" /></div>
+    <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Continuar</button>
+  `);
+  document.getElementById('mBtnReservar').onclick = async () => {
+    const contacto = document.getElementById('mContacto').value.trim();
+    if (!contacto) return modalError('Ingresá un contacto');
+    try {
+      const data = await api(reservarPath, { method: 'POST', body: { contacto } });
+      pasoCodigo(contacto, data.codigoDev);
+    } catch (e) { modalError(e.message); }
+  };
+
+  function pasoCodigo(contacto, codigoDev) {
+    openModal(`
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3>Ingresá el código</h3>
+      <div id="modalMsg"></div>
+      ${codigoDev ? banner('ok', 'Modo dev — tu código es ' + codigoDev) : `<div class="muted" style="font-size:12px;margin-bottom:10px;">Te lo enviamos a ${escapeHtml(contacto)}</div>`}
+      <div class="field"><label>Código de 6 dígitos</label><input id="mCodigo" type="text" maxlength="6" /></div>
+      <button class="btn btn-primary" style="width:100%" id="mBtnConfirmar">Confirmar</button>
+    `);
+    document.getElementById('mBtnConfirmar').onclick = async () => {
+      const codigo = document.getElementById('mCodigo').value.trim();
+      if (!codigo) return modalError('Ingresá el código');
+      try {
+        const data = await api(confirmarPath, { method: 'POST', body: { contacto, codigo } });
+        onDone(data, contacto);
+      } catch (e) { modalError(e.message); }
+    };
+  }
+}
+
+function abrirReservaNumero(token, valor) {
+  openModal(`
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h3>Reservar número ${valor}</h3>
+    <div id="modalMsg"></div>
+    <div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" placeholder="Juan Pérez" /></div>
+    <div class="field"><label>Email o celular</label><input id="mContacto" type="text" placeholder="vos@ejemplo.com" /></div>
+    <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Reservar pendiente de pago</button>
+  `);
+  document.getElementById('mBtnReservar').onclick = async () => {
+    const nombre = document.getElementById('mNombre').value.trim();
+    const contacto = document.getElementById('mContacto').value.trim();
+    if (!nombre) return modalError('Ingresá tu nombre y apellido');
+    try {
+      const data = await api(`/s/${token}/numeros/${valor}/reservar`, { method: 'POST', body: { nombre, telefono: contacto } });
+      openModal(`
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3>Número ${valor} reservado</h3>
+        ${banner('ok', data.mensaje)}
+        <div class="muted" style="font-size:12px;margin-top:10px;">Se mostrará amarillo hasta que el organizador confirme tu pago.</div>
+        <button class="btn btn-ghost" style="width:100%;margin-top:14px" onclick="closeModal()">Cerrar</button>
+      `);
+      cargarTablero();
+    } catch (e) { modalError(e.message); }
+  };
+}
+
+function abrirReservaSerie(token, numeroSerie) {
+  openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Reservar serie ${String(numeroSerie).padStart(3, '0')}</h3>
+    <div id="modalMsg"></div><div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" /></div>
+    <div class="field"><label>Teléfono (opcional)</label><input id="mTelefono" type="tel" /></div>
+    <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Confirmar solicitud</button>`);
+  document.getElementById('mBtnReservar').onclick = async () => {
+    const nombre = document.getElementById('mNombre').value.trim();
+    const telefono = document.getElementById('mTelefono').value.trim();
+    if (!nombre) return modalError('Ingresá tu nombre y apellido');
+    try {
+      const data = await api(`/s/${token}/series/${numeroSerie}/reservar`, { method: 'POST', body: { nombre, telefono } });
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.searchParams.set('sorteo', token);
+      url.searchParams.set('tipo', 'BINGO');
+      url.searchParams.set('reingreso', data.reingreso);
+      openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Serie pendiente de pago</h3>
+        ${banner('ok', data.mensaje)}
+        <div class="muted" style="font-size:12px;margin:10px 0;">Guardá este enlace. La descarga se habilitará cuando el organizador confirme el pago.</div>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="copiarTexto('${url.toString()}', this)">Copiar mi enlace privado</button>
+        <a class="btn btn-ghost" style="width:100%;text-align:center" href="${url.toString()}">Consultar confirmación</a>`);
+      cargarSeries();
+    } catch (e) { modalError(e.message); }
+  };
+}
+
+function verMiSerieAhora(token, numeroSerie) {
+  closeModal();
+  document.getElementById('miSerieToken').value = token;
+  document.getElementById('miSerieNumero').value = numeroSerie;
+  irATab('carton');
+  cargarMiSerie();
+}
+
+function abrirParticipar(token) {
+  abrirFormularioPendiente('Quiero participar', `/s/${token}/participar`, cargarTablero);
+}
+
+function abrirFormularioPendiente(titulo, path, refrescar) {
+  openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>${escapeHtml(titulo)}</h3>
+    <div id="modalMsg"></div><div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" /></div>
+    <div class="field"><label>Teléfono (opcional)</label><input id="mTelefono" type="tel" /></div>
+    <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Confirmar solicitud</button>`);
+  document.getElementById('mBtnReservar').onclick = async () => {
+    const nombre = document.getElementById('mNombre').value.trim();
+    const telefono = document.getElementById('mTelefono').value.trim();
+    if (!nombre) return modalError('Ingresá tu nombre y apellido');
+    try {
+      const data = await api(path, { method: 'POST', body: { nombre, telefono } });
+      openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Solicitud recibida</h3>
+        ${banner('ok', data.mensaje)}<button class="btn btn-ghost" style="width:100%;margin-top:14px" onclick="closeModal()">Cerrar</button>`);
+      refrescar();
+    } catch (e) { modalError(e.message); }
+  };
+}
+
+/* ================== 01 ADMIN ================== */
+document.getElementById('btnAdminLogin').addEventListener('click', async () => {
+  const email = document.getElementById('adminEmail').value.trim();
+  const password = document.getElementById('adminPass').value;
+  const msg = document.getElementById('adminLoginMsg');
+  msg.innerHTML = '';
+  try {
+    const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+    if (data.usuario.rol !== 'ADMIN') throw new Error('Esa cuenta no es de admin');
+    adminToken = data.token; adminInfo = data.usuario;
+    document.getElementById('adminLoginBox').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    document.getElementById('adminQuien').textContent = `${adminInfo.nombre} · ${adminInfo.email}`;
+    cargarAdmin();
+  } catch (e) { msg.innerHTML = banner('err', e.message); }
+});
+document.getElementById('btnAdminLogout').addEventListener('click', () => {
+  adminToken = null; adminInfo = null;
+  document.getElementById('adminLoginBox').style.display = 'block';
+  document.getElementById('adminPanel').style.display = 'none';
+});
+document.getElementById('btnAdminRefrescar').addEventListener('click', cargarAdmin);
+
+async function cargarAdmin() {
+  const tbody = document.getElementById('adminTbody');
+  tbody.innerHTML = `<tr><td colspan="5" class="muted">Cargando...</td></tr>`;
+  try {
+    const lista = await api('/admin/organizadores', { token: adminToken });
+    if (lista.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="muted">Todavía no hay organizadores registrados.</td></tr>`; return; }
+    tbody.innerHTML = lista.map((o) => {
+      const chipClass = o.estado === 'PENDIENTE' ? 'pending' : o.estado === 'APROBADO' ? 'ok' : 'off';
+      const acciones = o.estado === 'PENDIENTE'
+        ? `<button class="btn btn-ghost btn-sm" onclick="decidirOrganizador('${o.id}','rechazar')">Rechazar</button>
+           <button class="btn btn-primary btn-sm" onclick="decidirOrganizador('${o.id}','aprobar')">Aprobar</button>`
+        : '';
+      return `<tr>
+        <td>${escapeHtml(o.nombre)}</td>
+        <td class="mono muted">${escapeHtml(o.email)}</td>
+        <td class="muted">${new Date(o.creadoEn).toLocaleString('es-AR')}</td>
+        <td><span class="chip ${chipClass}">${o.estado}</span></td>
+        <td><div class="row" style="gap:8px; justify-content:flex-end;">${acciones}</div></td>
+      </tr>`;
+    }).join('');
+  } catch (e) { tbody.innerHTML = `<tr><td colspan="5">${banner('err', e.message)}</td></tr>`; }
+}
+async function decidirOrganizador(id, accion) {
+  try {
+    await api(`/admin/organizadores/${id}/${accion}`, { method: 'POST', token: adminToken });
+    cargarAdmin();
+  } catch (e) { alert(e.message); }
+}
+
+/* ================== 02 PANEL ORGANIZADOR ================== */
+document.getElementById('btnMostrarRegistro').addEventListener('click', () => {
+  document.getElementById('orgLoginBox').style.display = 'none';
+  document.getElementById('orgRegistroBox').style.display = 'block';
+});
+document.getElementById('btnVolverLogin').addEventListener('click', () => {
+  document.getElementById('orgRegistroBox').style.display = 'none';
+  document.getElementById('orgLoginBox').style.display = 'block';
+});
+document.getElementById('btnRegistrar').addEventListener('click', async () => {
+  const nombre = document.getElementById('regNombre').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPass').value;
+  const msg = document.getElementById('orgRegistroMsg');
+  try {
+    const data = await api('/auth/registro', { method: 'POST', body: { nombre, email, password } });
+    msg.innerHTML = banner('ok', data.mensaje);
+    document.getElementById('orgEmail').value = email;
+  } catch (e) { msg.innerHTML = banner('err', e.message); }
+});
+document.getElementById('btnOrgLogin').addEventListener('click', async () => {
+  const email = document.getElementById('orgEmail').value.trim();
+  const password = document.getElementById('orgPass').value;
+  const msg = document.getElementById('orgLoginMsg');
+  msg.innerHTML = '';
+  try {
+    const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+    if (data.usuario.rol !== 'ORGANIZADOR') throw new Error('Esa cuenta no es de organizador');
+    orgToken = data.token; orgInfo = data.usuario;
+    sessionStorage.setItem('tombolaOrgToken', orgToken);
+    document.getElementById('orgLoginBox').style.display = 'none';
+    document.getElementById('orgPanel').style.display = 'block';
+    document.getElementById('orgQuien').textContent = `${orgInfo.nombre} · ${orgInfo.email} · ${orgInfo.estado}`;
+    refrescarNoticeCrear();
+    renderPanelOrganizador();
+  } catch (e) { msg.innerHTML = banner('err', e.message); }
+});
+document.getElementById('btnOrgLogout').addEventListener('click', () => {
+  orgToken = null; orgInfo = null;
+  sessionStorage.removeItem('tombolaOrgToken');
+  refrescarNoticeCrear();
+  document.getElementById('orgPanel').style.display = 'none';
+  document.getElementById('orgLoginBox').style.display = 'block';
+});
+
+async function renderPanelOrganizador() {
+  const notice = document.getElementById('orgPendienteNotice');
+  const grid = document.getElementById('misSorteosGrid');
+  if (orgInfo.estado !== 'APROBADO') {
+    notice.innerHTML = `<div class="notice info">Tu cuenta todavía está <strong>${orgInfo.estado.toLowerCase()}</strong>. Un admin tiene que aprobarla (pestaña 01) antes de que puedas crear sorteos.</div>`;
+    grid.innerHTML = '';
+    return;
+  }
+  notice.innerHTML = '';
+  await cargarMisSorteos();
+}
+
+async function cargarMisSorteos() {
+  const grid = document.getElementById('misSorteosGrid');
+  grid.innerHTML = `<div class="muted">Cargando...</div>`;
+  try {
+    misSorteosCache = await api('/sorteos', { token: orgToken });
+    if (misSorteosCache.length === 0) {
+      grid.innerHTML = `<div class="add-card" onclick="irATab('crear')">+ Nuevo sorteo</div>`;
+      return;
+    }
+    grid.innerHTML = misSorteosCache.map(renderSorteoCard).join('') + `<div class="add-card" onclick="irATab('crear')">+ Nuevo sorteo</div>`;
+  } catch (e) { grid.innerHTML = banner('err', e.message); }
+}
+
+function renderSorteoCard(s) {
+  const tipoLabel = s.tipo === 'RIFA' ? 'Rifa' : s.tipo === 'BINGO' ? 'Bingo' : 'Sorteo simple';
+  const chipClass = s.estado === 'ACTIVO' ? 'ok' : s.estado === 'SORTEADO' ? 'off' : 'pending';
+  let acciones = '';
+  if (s.estado === 'BORRADOR') acciones = `<button class="btn btn-primary btn-sm" onclick="publicarSorteo('${s.id}')">Publicar</button>`;
+  if (s.estado === 'ACTIVO') acciones = `<button class="btn btn-ghost btn-sm" onclick="irAVerTablero('${s.linkToken}','${s.tipo}','${s.id}')">Ver tablero</button><button class="btn btn-danger btn-sm" onclick="cerrarSorteo('${s.id}')">Cerrar</button>`;
+  if (s.estado === 'CERRADO') acciones = s.tipo !== 'BINGO'
+    ? `<button class="btn btn-primary btn-sm" onclick="sortearSorteo('${s.id}')">Sortear</button>`
+    : `<span class="muted" style="font-size:11px;">Bingo cerrado</span>`;
+  if (s.estado === 'SORTEADO') acciones = `<button class="btn btn-ghost btn-sm" onclick="irAVerResultado('${s.linkToken}')">Ver resultado</button>`;
+  const enlacePublico = s.linkToken ? urlPublicaSorteo(s) : '';
+  const datosPublicos = s.linkToken ? `
+    <div class="muted" style="font-size:11px;margin-top:10px;">Token público</div>
+    <div class="meta" style="overflow-wrap:anywhere;">${escapeHtml(s.linkToken)}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px;">
+      <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace público</a>
+      <button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlPublicaSorteo(misSorteosCache.find(x => x.id === '${s.id}')), this)">Copiar enlace</button>
+      <button class="btn btn-ghost btn-sm" onclick="copiarTexto('${s.linkToken}', this)">Copiar token</button>
+    </div>` : `<div class="meta">Todavía no tiene enlace público</div>`;
+  return `<div class="sorteo-card">
+    <div class="tipo">${tipoLabel}</div>
+    <h3>${escapeHtml(s.titulo)}</h3>
+    ${datosPublicos}
+    <div class="row"><span class="chip ${chipClass}">${s.estado}</span>${acciones}</div>
+  </div>`;
+}
+
+async function publicarSorteo(id) {
+  try {
+    const data = await api(`/sorteos/${id}/publicar`, { method: 'POST', token: orgToken });
+    alert('Publicado. Link: ' + (data.linkPublico || data.linkToken));
+    cargarMisSorteos();
+  } catch (e) { alert(e.message); }
+}
+async function cerrarSorteo(id) {
+  if (!confirm('¿Cerrar inscripciones? Ya no se van a poder reservar más números/series.')) return;
+  try { await api(`/sorteos/${id}/cerrar`, { method: 'POST', token: orgToken }); cargarMisSorteos(); }
+  catch (e) { alert(e.message); }
+}
+async function sortearSorteo(id) {
+  if (!confirm('¿Ejecutar el sorteo ahora? No se puede deshacer.')) return;
+  try {
+    const data = await api(`/sorteos/${id}/sortear`, { method: 'POST', token: orgToken });
+    alert('Ganador: ' + data.ganador.valor);
+    cargarMisSorteos();
+  } catch (e) { alert(e.message); }
+}
+function irAVerTablero(token, tipo, sorteoId = null) {
+  tableroOrganizadorSorteoId = sorteoId;
+  tableroOrganizadorTipo = tipo;
+  if (tipo === 'BINGO') { document.getElementById('seriesToken').value = token; irATab('series'); cargarSeries(); }
+  else {
+    document.getElementById('tableroToken').value = token;
+    irATab('tablero');
+    cargarTablero();
+  }
+}
+function irAVerResultado(token) {
+  document.getElementById('resultadoToken').value = token;
+  irATab('resultado');
+  verResultado();
+}
+function abrirBolillero() {
+  sessionStorage.setItem('tombolaOrgToken', orgToken);
+  window.location.href = '/sorteo-en-vivo.html';
+}
+
+/* ================== 03 CREAR SORTEO ================== */
+document.querySelectorAll('.type-opt').forEach((o) => o.addEventListener('click', () => {
+  document.querySelectorAll('.type-opt').forEach((x) => x.classList.remove('sel'));
+  o.classList.add('sel');
+  tipoSeleccionado = o.dataset.tipo;
+  document.querySelectorAll('[data-for]').forEach((f) => { f.style.display = f.dataset.for === tipoSeleccionado ? 'flex' : 'none'; });
+}));
+
+function refrescarNoticeCrear() {
+  const notice = document.getElementById('crearNotice');
+  const form = document.getElementById('crearForm');
+  if (!orgToken) {
+    notice.innerHTML = `<div class="notice info">Iniciá sesión como organizador en la pestaña "Panel organizador" para crear un sorteo. <button class="btn btn-ghost btn-sm" onclick="irATab('dash')" style="margin-left:8px;">Ir a loguearme</button></div>`;
+    form.style.opacity = '0.5'; form.style.pointerEvents = 'none';
+  } else if (orgInfo.estado !== 'APROBADO') {
+    notice.innerHTML = `<div class="notice info">Tu cuenta todavía no fue aprobada por un admin.</div>`;
+    form.style.opacity = '0.5'; form.style.pointerEvents = 'none';
+  } else {
+    notice.innerHTML = '';
+    form.style.opacity = '1'; form.style.pointerEvents = 'auto';
+  }
+}
+
+document.getElementById('btnCrearPublicar').addEventListener('click', async () => {
+  const msg = document.getElementById('crearMsg');
+  msg.innerHTML = '';
+  const titulo = document.getElementById('fTitulo').value.trim();
+  const descripcion = document.getElementById('fDescripcion').value.trim();
+  const fechaCierreVal = document.getElementById('fFechaCierre').value;
+  let config = {};
+  if (tipoSeleccionado === 'RIFA') {
+    config = { cantidadNumeros: Number(document.getElementById('fCantidadNumeros').value), cantidadGanadores: Number(document.getElementById('fGanadoresRifa').value) };
+  } else if (tipoSeleccionado === 'BINGO') {
+    config = { cartonesPorSerie: Number(document.getElementById('fCartonesPorSerie').value), cantidadSeries: Number(document.getElementById('fCantidadSeries').value) };
+  } else {
+    config = { cantidadGanadores: Number(document.getElementById('fGanadoresSimple').value) };
+  }
+  const body = { tipo: tipoSeleccionado, titulo, descripcion, config };
+  if (fechaCierreVal) body.fechaCierre = new Date(fechaCierreVal).toISOString();
+
+  try {
+    const creado = await api('/sorteos', { method: 'POST', token: orgToken, body });
+    const publicado = await api(`/sorteos/${creado.id}/publicar`, { method: 'POST', token: orgToken });
+    const sorteoPublicado = { ...creado, ...publicado, tipo: tipoSeleccionado };
+    const enlacePublico = urlPublicaSorteo(sorteoPublicado);
+    const jump = `irAVerTablero('${publicado.linkToken}','${tipoSeleccionado}','${publicado.id}')`;
+    msg.innerHTML = banner('ok', 'Publicado. Link token: ' + publicado.linkToken) +
+      `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="${jump}">Ir al tablero público</button>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace para clientes</a>
+        <button class="btn btn-ghost btn-sm" onclick="copiarTexto('${escapeHtml(enlacePublico)}', this)">Copiar enlace</button>
+      </div>`;
+    cargarMisSorteos();
+  } catch (e) { msg.innerHTML = banner('err', e.message); }
+});
+
+/* ================== 04 TABLERO (RIFA / SORTEO_SIMPLE) ================== */
+document.getElementById('btnCargarTablero').addEventListener('click', () => {
+  tableroOrganizadorSorteoId = null;
+  tableroOrganizadorTipo = null;
+  cargarTablero();
+});
+async function cargarTablero() {
+  const token = document.getElementById('tableroToken').value.trim();
+  if (!token) return;
+  tableroTokenActual = token;
+  try {
+    const data = tableroOrganizadorSorteoId
+      ? await api(`/sorteos/${tableroOrganizadorSorteoId}/${tableroOrganizadorTipo === 'RIFA' ? 'numeros' : 'inscripciones'}`, { token: orgToken })
+      : await api(`/s/${token}`);
+    document.getElementById('tableroShell').style.display = 'block';
+    document.getElementById('tableroTitulo').textContent = data.titulo;
+    document.getElementById('tableroDesc').textContent = data.descripcion || '';
+    document.getElementById('tableroEstadoBox').textContent = `Estado: ${data.estado}`;
+    const cont = document.getElementById('tableroContenido');
+
+    if (data.tipo === 'RIFA') {
+      cont.innerHTML = `${tableroOrganizadorSorteoId ? `<div class="notice info">Control de pagos: tocá un número <strong>amarillo</strong> para confirmar el pago y uno <strong>tomado</strong> para liberarlo. Pasá el cursor para ver los datos del cliente.</div>` : ''}
+        <div class="tablero" id="tablero-grid"></div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot" style="background:var(--teal);"></span> Libre</div>
+          <div class="legend-item"><span class="legend-dot" style="background:var(--marquee);"></span> Pendiente de pago</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#3a2f2a;"></span> Tomado</div>
+        </div>`;
+      const grid = document.getElementById('tablero-grid');
+      data.tablero.forEach((n) => {
+        const b = document.createElement('button');
+        b.className = 'ball ' + n.estado.toLowerCase();
+        b.textContent = n.valor;
+        b.dataset.valor = n.valor;
+        if (tableroOrganizadorSorteoId) {
+          const persona = n.participante;
+          b.title = persona ? `${persona.nombre || 'Sin nombre'} · ${persona.contacto}` : 'Libre';
+          if (n.estado === 'RESERVADO') b.onclick = () => cambiarEstadoNumero(n.valor, 'TOMADO');
+          if (n.estado === 'TOMADO') b.onclick = () => cambiarEstadoNumero(n.valor, 'LIBRE');
+        } else if (n.estado === 'LIBRE') {
+          b.onclick = () => abrirReservaNumero(token, n.valor);
+        }
+        grid.appendChild(b);
+      });
+    } else if (data.tipo === 'SORTEO_SIMPLE') {
+      if (tableroOrganizadorSorteoId) {
+        cont.innerHTML = `<div class="notice info">Tocá una inscripción pendiente para confirmar el pago; tocá una confirmada para eliminarla.</div>
+          <div class="serie-cards">${data.inscripciones.map(i => `<button class="serie-chip ${i.estado.toLowerCase()}" onclick="cambiarEstadoInscripcion('${i.id}','${i.estado === 'RESERVADO' ? 'TOMADO' : 'LIBRE'}')">
+            <span class="num">${escapeHtml(i.participante.nombre)}</span><span class="sub">${escapeHtml(i.participante.telefono || 'Sin teléfono')} · ${i.estado === 'RESERVADO' ? 'Pendiente' : 'Confirmado'}</span></button>`).join('') || '<div class="muted">No hay inscripciones.</div>'}</div>`;
+      } else cont.innerHTML = `<div class="panel">
+        <div class="row">
+          <div>
+            <div class="muted mono" style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Inscriptos confirmados</div>
+            <div style="font-family:var(--disp); font-size:32px; color:var(--paper);">${data.cantidadInscriptos}</div>
+          </div>
+          <button class="btn btn-primary" onclick="abrirParticipar('${token}')">Quiero participar</button>
+        </div>
+      </div>`;
+    } else {
+      cont.innerHTML = `<div class="notice info">Este link es de un <strong>bingo</strong> — usá la pestaña "Series de bingo".</div>`;
+    }
+    conectarRealtime(token, 'tablero', (evt) => {
+      if (evt.tipo !== 'numero') return;
+      const grid = document.getElementById('tablero-grid');
+      if (!grid) return;
+      const btn = grid.querySelector(`[data-valor="${evt.valor}"]`);
+      if (btn) {
+        btn.className = 'ball ' + evt.estado.toLowerCase();
+        if (tableroOrganizadorSorteoId) cargarTablero();
+        else btn.onclick = evt.estado === 'LIBRE' ? () => abrirReservaNumero(token, evt.valor) : null;
+      }
+    });
+  } catch (e) { alert(e.message); }
+}
+
+async function cambiarEstadoNumero(valor, estado) {
+  const accion = estado === 'TOMADO' ? 'confirmar el pago' : 'liberar el número';
+  if (!confirm(`¿Querés ${accion} ${valor}?`)) return;
+  try {
+    await api(`/sorteos/${tableroOrganizadorSorteoId}/numeros/${valor}`, {
+      method: 'PATCH', token: orgToken, body: { estado },
+    });
+    await cargarTablero();
+  } catch (e) { alert(e.message); }
+}
+
+async function cambiarEstadoInscripcion(id, estado) {
+  if (!confirm(estado === 'TOMADO' ? '¿Confirmar este pago?' : '¿Eliminar esta inscripción?')) return;
+  try {
+    await api(`/sorteos/${tableroOrganizadorSorteoId}/inscripciones/${id}`, { method: 'PATCH', token: orgToken, body: { estado } });
+    cargarTablero();
+  } catch (e) { alert(e.message); }
+}
+
+/* ================== 05 SERIES DE BINGO ================== */
+document.getElementById('btnCargarSeries').addEventListener('click', cargarSeries);
+async function cargarSeries() {
+  const token = document.getElementById('seriesToken').value.trim();
+  if (!token) return;
+  seriesTokenActual = token;
+  try {
+    const data = tableroOrganizadorSorteoId
+      ? await api(`/sorteos/${tableroOrganizadorSorteoId}/series`, { token: orgToken })
+      : await api(`/s/${token}`);
+    if (data.tipo !== 'BINGO') { alert('Ese link no es de un bingo. Usá la pestaña "Tablero público".'); return; }
+    document.getElementById('seriesShell').style.display = 'block';
+    document.getElementById('seriesTitulo').textContent = data.titulo;
+    document.getElementById('seriesDesc').textContent = data.descripcion || '';
+    document.getElementById('seriesEstadoBox').textContent = `Estado: ${data.estado}`;
+    const grid = document.getElementById('series-grid');
+    grid.innerHTML = '';
+    data.tablero.forEach((s) => {
+      const el = document.createElement('button');
+      el.className = 'serie-chip ' + s.estado.toLowerCase();
+      el.dataset.numero = s.numero;
+      el.innerHTML = `<span class="num">${String(s.numero).padStart(3, '0')}</span><span class="sub">${s.cantidadCartones} cartones</span>`;
+      if (tableroOrganizadorSorteoId) {
+        el.title = s.participante ? `${s.participante.nombre} · ${s.participante.telefono || 'Sin teléfono'}` : 'Libre';
+        if (s.estado === 'RESERVADO') el.onclick = () => cambiarEstadoSerie(s.numero, 'TOMADO');
+        if (s.estado === 'TOMADO') el.onclick = () => cambiarEstadoSerie(s.numero, 'LIBRE');
+      } else if (s.estado === 'LIBRE') el.onclick = () => abrirReservaSerie(token, s.numero);
+      grid.appendChild(el);
+    });
+    conectarRealtime(token, 'series', (evt) => {
+      if (evt.tipo !== 'serie') return;
+      const el = grid.querySelector(`[data-numero="${evt.numero}"]`);
+      if (el) {
+        const cant = el.querySelector('.sub').textContent;
+        el.className = 'serie-chip ' + evt.estado.toLowerCase();
+        el.innerHTML = `<span class="num">${String(evt.numero).padStart(3, '0')}</span><span class="sub">${cant}</span>`;
+        if (tableroOrganizadorSorteoId) cargarSeries();
+        else if (evt.estado === 'LIBRE') el.onclick = () => abrirReservaSerie(token, evt.numero);
+      }
+    });
+  } catch (e) { alert(e.message); }
+}
+
+async function cambiarEstadoSerie(numero, estado) {
+  if (!confirm(estado === 'TOMADO' ? '¿Confirmar el pago de esta serie?' : '¿Liberar esta serie?')) return;
+  try {
+    await api(`/sorteos/${tableroOrganizadorSorteoId}/series/${numero}`, { method: 'PATCH', token: orgToken, body: { estado } });
+    cargarSeries();
+  } catch (e) { alert(e.message); }
+}
+
+/* ================== 06 DESCARGAR MI SERIE ================== */
+document.getElementById('btnCargarMiSerie').addEventListener('click', cargarMiSerie);
+function obtenerTokenSorteo(valor) {
+  const texto = valor.trim();
+  if (!texto) return '';
+  try {
+    const url = new URL(texto);
+    return url.searchParams.get('sorteo') || url.pathname.match(/\/s\/([^/]+)/)?.[1] || '';
+  } catch (_) {
+    return texto;
+  }
+}
+document.getElementById('btnDescargarPdf').addEventListener('click', () => {
+  const token = obtenerTokenSorteo(document.getElementById('miSerieToken').value);
+  const numeroSerie = Number(document.getElementById('miSerieNumero').value);
+  window.open(`${API}/s/${encodeURIComponent(token)}/mi-serie/descargar?numeroSerie=${numeroSerie}`, '_blank');
+});
+
+async function cargarMiSerie() {
+  const token = obtenerTokenSorteo(document.getElementById('miSerieToken').value);
+  const numeroSerie = Number(document.getElementById('miSerieNumero').value);
+  const msg = document.getElementById('miSerieMsg');
+  const cont = document.getElementById('miSerieCartones');
+  msg.innerHTML = ''; cont.innerHTML = '';
+  document.getElementById('btnDescargarPdf').style.display = 'none';
+  if (!token || !Number.isInteger(numeroSerie) || numeroSerie < 1) { msg.innerHTML = banner('err', 'Completá el link de ingreso y un número de serie válido'); return; }
+  try {
+    const data = await api(`/s/${encodeURIComponent(token)}/mi-serie?numeroSerie=${numeroSerie}`);
+    document.getElementById('btnDescargarPdf').style.display = 'inline-block';
+    cont.innerHTML = `<div class="mono muted" style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">
+        Serie ${String(data.numeroSerie).padStart(3, '0')} · ${data.cantidadCartones} cartones
+      </div><div class="serie-cards">` +
+      data.cartones.map((c) => `
+        <div class="bingo-card">
+          <div class="card-head"><span class="brand">BINGO VIRTUAL</span><span class="id">CARTÓN ${c.posicion}/${data.cantidadCartones}</span></div>
+          <div class="cells">${c.contenido.flat().map((v) => `<div class="cell ${v === null ? 'blank' : ''}">${v ?? ''}</div>`).join('')}</div>
+        </div>`).join('') + `</div>`;
+  } catch (e) { msg.innerHTML = banner('err', e.message); }
+}
+
+/* ================== 07 RESULTADO ================== */
+document.getElementById('btnVerResultado').addEventListener('click', verResultado);
+async function verResultado() {
+  const token = document.getElementById('resultadoToken').value.trim();
+  const panel = document.getElementById('resultadoPanel');
+  if (!token) return;
+  try {
+    const r = await api(`/s/${token}/resultado`);
+    panel.style.display = 'block';
+    panel.innerHTML = `
+      <div class="winner-block">
+        <div class="winner-num">${escapeHtml(r.ganadorValor)}</div>
+        <div>
+          <div class="muted mono" style="font-size:11px; text-transform:uppercase; letter-spacing:1px;">Ganador (${r.ganadorTipo})</div>
+          <div class="muted" style="font-size:12.5px; margin-top:4px;">Sorteado el ${new Date(r.sorteadoEn).toLocaleString('es-AR')}</div>
+        </div>
+      </div>
+      <div class="audit-row"><div class="k">Verificación</div><div class="v">${r.verificado ? '✅ el hash coincide, no se manipuló' : '⚠️ el hash NO coincide'}</div></div>
+      <div class="audit-row"><div class="k">Semilla</div><div class="v">${r.semilla}</div></div>
+      <div class="audit-row"><div class="k">Hash publicado</div><div class="v">${r.hashPublicado}</div></div>
+      <div class="audit-row"><div class="k">Hash recalculado ahora</div><div class="v">${r.hashRecalculado}</div></div>
+    `;
+  } catch (e) { panel.style.display = 'block'; panel.innerHTML = banner('err', e.message); }
+}
+
+/* ================== tiempo real ================== */
+function conectarRealtime(token, cual, onEvento) {
+  const wsUrl = API.replace(/^http/, 'ws') + '/ws?sorteo=' + encodeURIComponent(token);
+  try {
+    const ws = new WebSocket(wsUrl);
+    ws.onmessage = (ev) => { try { onEvento(JSON.parse(ev.data)); } catch (e) {} };
+    if (cual === 'tablero') { if (wsTablero) wsTablero.close(); wsTablero = ws; }
+    else { if (wsSeries) wsSeries.close(); wsSeries = ws; }
+  } catch (e) { /* sin tiempo real, el tablero igual funciona a fuerza de recargar */ }
+}
+
+refrescarNoticeCrear();
+
+/* Un enlace compartido abre directamente el tablero correspondiente. */
+const paramsPublicos = new URLSearchParams(window.location.search);
+const portalPrivado = paramsPublicos.get('portal');
+const tokenPublico = paramsPublicos.get('sorteo');
+const tipoPublico = paramsPublicos.get('tipo');
+const seriePublica = paramsPublicos.get('serie');
+if (portalPrivado === 'admin') {
+  document.querySelectorAll('#tabs button').forEach(b => { b.style.display = b.dataset.view === 'admin' ? '' : 'none'; });
+  irATab('admin');
+  history.replaceState(null, '', '/admin.html');
+} else if (portalPrivado === 'organizador') {
+  const adminTab = document.querySelector('#tabs button[data-view="admin"]');
+  if (adminTab) adminTab.style.display = 'none';
+  irATab('dash');
+  history.replaceState(null, '', '/organizador.html');
+} else if (!tokenPublico) {
+  const adminTab = document.querySelector('#tabs button[data-view="admin"]');
+  if (adminTab) adminTab.style.display = 'none';
+  irATab('dash');
+}
+if (tokenPublico) {
+  tableroOrganizadorSorteoId = null;
+  tableroOrganizadorTipo = null;
+  document.querySelector('header.top').style.display = 'none';
+  document.querySelector('.api-bar').style.display = 'none';
+  document.getElementById('tabs').style.display = 'none';
+  document.querySelector('footer.tip').style.display = 'none';
+  if (tipoPublico === 'BINGO' && seriePublica) {
+    document.getElementById('miSerieToken').value = tokenPublico;
+    document.getElementById('miSerieNumero').value = seriePublica;
+    irATab('carton');
+    cargarMiSerie();
+  } else if (tipoPublico === 'BINGO') {
+    document.getElementById('seriesToken').value = tokenPublico;
+    irATab('series');
+    cargarSeries();
+  } else {
+    document.getElementById('tableroToken').value = tokenPublico;
+    irATab('tablero');
+    cargarTablero();
+  }
+}
+</script>
+</body>
+</html>
