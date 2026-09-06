@@ -258,7 +258,7 @@ sorteosRouter.post(
     const actualizado = await prisma.sorteo.findUnique({ where: { id: sorteo.id } });
     res.json({
       ...actualizado,
-      linkPublico: `${process.env.PUBLIC_BASE_URL || ""}/s/${linkToken}`,
+      linkPublico: `${(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")}/tablero-publico.html?sorteo=${encodeURIComponent(linkToken)}`,
     });
   })
 );

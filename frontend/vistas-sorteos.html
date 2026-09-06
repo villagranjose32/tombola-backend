@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bingo Virtual — Conectado al backend</title>
+<script src="/enlace-publico-legacy.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -372,6 +373,7 @@
       <div class="row" style="margin-top:10px; justify-content:flex-start; gap:10px;">
         <button class="btn btn-primary" id="btnCargarMiSerie">Cargar mi serie</button>
         <button class="btn btn-ghost" id="btnDescargarPdf" style="display:none;">Descargar serie (PDF)</button>
+        <button class="btn btn-ghost" id="btnCompartirSerie">Compartir enlace de descarga</button>
       </div>
     </div>
     <div id="miSerieCartones"></div>
@@ -443,11 +445,20 @@ function escapeHtml(s) {
 }
 function banner(tipo, msg) { return `<div class="banner ${tipo}">${escapeHtml(msg)}</div>`; }
 function urlPublicaSorteo(s) {
-  const url = new URL(window.location.href);
-  url.search = '';
-  url.hash = '';
+  const url = new URL('/tablero-publico.html', window.location.origin);
   url.searchParams.set('sorteo', s.linkToken);
   url.searchParams.set('tipo', s.tipo);
+  return url.toString();
+}
+function urlDescargaSerie(token, numeroSerie) {
+  const url = new URL('/descargar-serie.html', window.location.origin);
+  url.searchParams.set('sorteo', token);
+  if (numeroSerie) url.searchParams.set('serie', numeroSerie);
+  return url.toString();
+}
+function urlResultadoPublico(token) {
+  const url = new URL('/resultado-publico.html', window.location.origin);
+  url.searchParams.set('sorteo', token);
   return url.toString();
 }
 async function copiarTexto(texto, boton) {
@@ -575,15 +586,11 @@ function abrirReservaSerie(token, numeroSerie) {
     if (!nombre) return modalError('Ingresá tu nombre y apellido');
     try {
       const data = await api(`/s/${token}/series/${numeroSerie}/reservar`, { method: 'POST', body: { nombre, telefono } });
-      const url = new URL(window.location.href);
-      url.search = '';
-      url.searchParams.set('sorteo', token);
-      url.searchParams.set('tipo', 'BINGO');
-      url.searchParams.set('reingreso', data.reingreso);
+      const url = new URL(urlDescargaSerie(token, numeroSerie));
       openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Serie pendiente de pago</h3>
         ${banner('ok', data.mensaje)}
         <div class="muted" style="font-size:12px;margin:10px 0;">Guardá este enlace. La descarga se habilitará cuando el organizador confirme el pago.</div>
-        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="copiarTexto('${url.toString()}', this)">Copiar mi enlace privado</button>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="copiarTexto('${url.toString()}', this)">Copiar enlace de mi serie</button>
         <a class="btn btn-ghost" style="width:100%;text-align:center" href="${url.toString()}">Consultar confirmación</a>`);
       cargarSeries();
     } catch (e) { modalError(e.message); }
@@ -591,11 +598,7 @@ function abrirReservaSerie(token, numeroSerie) {
 }
 
 function verMiSerieAhora(token, numeroSerie) {
-  closeModal();
-  document.getElementById('miSerieToken').value = token;
-  document.getElementById('miSerieNumero').value = numeroSerie;
-  irATab('carton');
-  cargarMiSerie();
+  window.open(urlDescargaSerie(token, numeroSerie), '_blank', 'noopener');
 }
 
 function abrirParticipar(token) {
@@ -759,7 +762,8 @@ function renderSorteoCard(s) {
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px;">
       <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace público</a>
       <button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlPublicaSorteo(misSorteosCache.find(x => x.id === '${s.id}')), this)">Copiar enlace</button>
-      <button class="btn btn-ghost btn-sm" onclick="copiarTexto('${s.linkToken}', this)">Copiar token</button>
+      ${s.tipo === 'BINGO' ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlDescargaSerie(s.linkToken))}" target="_blank" rel="noopener">Abrir descarga de series</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlDescargaSerie('${s.linkToken}'), this)">Compartir descarga</button>` : ''}
+      ${s.estado === 'SORTEADO' ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlResultadoPublico(s.linkToken))}" target="_blank" rel="noopener">Abrir resultado público</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlResultadoPublico('${s.linkToken}'), this)">Compartir resultado</button>` : ''}
     </div>` : `<div class="meta">Todavía no tiene enlace público</div>`;
   return `<div class="sorteo-card">
     <div class="tipo">${tipoLabel}</div>
@@ -986,7 +990,18 @@ async function cargarSeries() {
         if (s.estado === 'RESERVADO') el.onclick = () => cambiarEstadoSerie(s.numero, 'TOMADO');
         if (s.estado === 'TOMADO') el.onclick = () => cambiarEstadoSerie(s.numero, 'LIBRE');
       } else if (s.estado === 'LIBRE') el.onclick = () => abrirReservaSerie(token, s.numero);
-      grid.appendChild(el);
+      if (tableroOrganizadorSorteoId) {
+        const grupo = document.createElement('div');
+        el.style.width = '100%';
+        grupo.appendChild(el);
+        const compartir = document.createElement('button');
+        compartir.className = 'btn btn-ghost btn-sm';
+        compartir.style.marginTop = '6px';
+        compartir.textContent = 'Compartir descarga';
+        compartir.onclick = () => copiarTexto(urlDescargaSerie(token, s.numero), compartir);
+        grupo.appendChild(compartir);
+        grid.appendChild(grupo);
+      } else grid.appendChild(el);
     });
     conectarRealtime(token, 'series', (evt) => {
       if (evt.tipo !== 'serie') return;
@@ -1012,6 +1027,15 @@ async function cambiarEstadoSerie(numero, estado) {
 
 /* ================== 06 DESCARGAR MI SERIE ================== */
 document.getElementById('btnCargarMiSerie').addEventListener('click', cargarMiSerie);
+document.getElementById('btnCompartirSerie').addEventListener('click', function () {
+  const token = obtenerTokenSorteo(document.getElementById('miSerieToken').value);
+  const numero = Number(document.getElementById('miSerieNumero').value);
+  if (!token || !Number.isInteger(numero) || numero < 1) {
+    document.getElementById('miSerieMsg').innerHTML = banner('err', 'Completá el enlace del sorteo y el número de serie antes de compartir.');
+    return;
+  }
+  copiarTexto(urlDescargaSerie(token, numero), this);
+});
 function obtenerTokenSorteo(valor) {
   const texto = valor.trim();
   if (!texto) return '';

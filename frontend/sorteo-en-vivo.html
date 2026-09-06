@@ -25,9 +25,6 @@
   .api-bar label{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(246,241,228,0.5); }
   .api-bar input{ background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:4px; padding:6px 9px; font-family:var(--mono); font-size:11.5px; width:230px; }
 
-  .mode-toggle{ display:flex; background:var(--felt); border:1px solid var(--line); border-radius:24px; padding:3px; }
-  .mode-toggle button{ font-family:var(--mono); font-size:11px; letter-spacing:0.5px; text-transform:uppercase; padding:8px 15px; border-radius:20px; border:none; background:transparent; color:rgba(246,241,228,0.55); cursor:pointer; }
-  .mode-toggle button.active{ background:var(--marquee); color:var(--ink); }
 
   main{ max-width:1180px; margin:0 auto; padding:26px; display:grid; grid-template-columns: 340px 1fr; gap:20px; }
   @media (max-width:880px){ main{ grid-template-columns:1fr; } }
@@ -110,10 +107,6 @@
     <div class="eyebrow">Bingo Virtual · Sorteo en vivo</div>
     <h1 id="tituloSorteo">Bolillero</h1>
   </div>
-  <div class="mode-toggle" id="modeToggle">
-    <button class="active" data-modo="organizador">Organizador</button>
-    <button data-modo="espectador">Espectador</button>
-  </div>
 </header>
 
 <div class="api-bar">
@@ -181,11 +174,8 @@
 
     <!-- ESPECTADOR -->
     <div class="panel" id="espectadorBox" style="display:none;">
-      <h2>Ver como espectador</h2>
-      <div class="field"><label>Link token del bingo</label><input id="espectadorToken" type="text" placeholder="ej: bingo-solidario-agosto-x9k2f8"></div>
-      <button class="btn btn-primary btn-full" id="btnConectarEspectador">Conectarme</button>
-      <div id="espectadorMsg" style="margin-top:10px;"></div>
-      <div class="hint">Se conecta por WebSocket — ve cada bolilla apenas el organizador la extrae, sin recargar.</div>
+      <h2>Sorteo en vivo</h2>
+      <div id="espectadorMsg" role="status">Conectando al sorteo...</div>
     </div>
 
     <!-- voz (siempre visible una vez hay tablero) -->
@@ -288,19 +278,6 @@
   }
   function banner(tipo, msg){ return `<div class="banner ${tipo}">${msg}</div>`; }
   function escapeHtml(valor){ return String(valor??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-  /* ---------- modo organizador / espectador ---------- */
-  document.querySelectorAll('#modeToggle button').forEach(b => b.addEventListener('click', () => {
-    modoPantalla = b.dataset.modo;
-    document.querySelectorAll('#modeToggle button').forEach(x => x.classList.toggle('active', x===b));
-    document.getElementById('orgLoginBox').style.display = (modoPantalla==='organizador' && !orgToken) ? 'block' : 'none';
-    document.getElementById('orgSelectBox').style.display = (modoPantalla==='organizador' && orgToken) ? 'block' : 'none';
-    document.getElementById('espectadorBox').style.display = modoPantalla==='espectador' ? 'block' : 'none';
-    if (modoPantalla==='espectador') {
-      document.getElementById('orgConfigBox').style.display='none';
-      document.getElementById('orgControlesBox').style.display='none';
-    }
-  }));
 
   /* ---------- login organizador ---------- */
   document.getElementById('btnOrgLogin').addEventListener('click', async () => {
@@ -515,12 +492,11 @@
   });
 
   /* ---------- espectador ---------- */
-  document.getElementById('btnConectarEspectador').addEventListener('click', async () => {
-    const token = document.getElementById('espectadorToken').value.trim();
+  async function conectarEspectador(token) {
     const msg = document.getElementById('espectadorMsg');
     if (!token) return;
     try {
-      const data = await api(`/vivo/${token}`);
+      const data = await api(`/vivo/${encodeURIComponent(token)}`);
       sorteoToken = token; estado = data;
       document.getElementById('tituloSorteo').textContent = data.titulo;
       document.getElementById('cagePanel').style.display = 'block';
@@ -532,8 +508,8 @@
       pintarEstado(estado);
       msg.innerHTML = banner('ok', 'Conectado. Esperando bolillas...');
       conectarWs(token);
-    } catch (e) { msg.innerHTML = banner('err', e.message); }
-  });
+    } catch (e) { msg.innerHTML = banner('err', escapeHtml(e.message)); }
+  }
 
   function conectarWs(token){
     if (ws) ws.close();
@@ -803,17 +779,17 @@
   async function inicializarDesdeEnlace() {
     const params = new URLSearchParams(window.location.search);
     const valorSorteo = params.get('sorteo');
-    if (params.get('modo') === 'espectador' && valorSorteo) {
+    if (params.get('modo') === 'espectador') {
       modoPantalla = 'espectador';
-      document.querySelectorAll('#modeToggle button').forEach(x => x.classList.toggle('active', x.dataset.modo === 'espectador'));
       document.getElementById('orgLoginBox').style.display = 'none';
       document.getElementById('orgSelectBox').style.display = 'none';
       document.getElementById('espectadorBox').style.display = 'block';
-      document.getElementById('espectadorToken').value = valorSorteo;
-      document.getElementById('btnConectarEspectador').click();
-      document.getElementById('espectadorBox').style.display = 'none';
-      document.getElementById('modeToggle').style.display = 'none';
       document.querySelector('.api-bar').style.display = 'none';
+      if (!valorSorteo?.trim()) {
+        document.getElementById('espectadorMsg').textContent = 'Para ver el sorteo, abrí el enlace que te compartió el organizador.';
+        return;
+      }
+      await conectarEspectador(valorSorteo);
       return;
     }
 
