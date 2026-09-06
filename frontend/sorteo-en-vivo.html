@@ -21,9 +21,6 @@
   .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--marquee); margin-bottom:6px; }
   h1{ font-family:var(--disp); font-weight:400; font-size:24px; margin:0; color:var(--paper); letter-spacing:0.3px; }
 
-  .api-bar{ background:var(--felt-2); border-bottom:1px solid var(--line); padding:9px 28px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .api-bar label{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(246,241,228,0.5); }
-  .api-bar input{ background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:4px; padding:6px 9px; font-family:var(--mono); font-size:11.5px; width:230px; }
 
 
   main{ max-width:1180px; margin:0 auto; padding:26px; display:grid; grid-template-columns: 340px 1fr; gap:20px; }
@@ -108,12 +105,6 @@
     <h1 id="tituloSorteo">Bolillero</h1>
   </div>
 </header>
-
-<div class="api-bar">
-  <label>API</label>
-  <input type="text" id="apiBaseInput" value="http://localhost:4000" />
-  <span class="hint" style="margin:0;">apuntá esto a tu backend corriendo</span>
-</div>
 
 <main>
   <div id="sidebarCartones">
@@ -249,14 +240,11 @@
   function pad(n, m){ return String(n).padStart(cifras(m), '0'); }
 
   /* ---------- estado ---------- */
-  let API = document.getElementById('apiBaseInput').value.replace(/\/$/, '');
-  if (!['localhost','127.0.0.1'].includes(window.location.hostname)) {
-    API = window.location.origin;
-    document.getElementById('apiBaseInput').value = API;
-  }
-  document.getElementById('apiBaseInput').addEventListener('change', e => { API = e.target.value.replace(/\/$/, ''); });
+  const API = ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port === '8080'
+  ? `${window.location.protocol}//${window.location.hostname}:4000`
+  : window.location.origin;
 
-  let modoPantalla = 'organizador';
+let modoPantalla = 'organizador';
   let orgToken = null, orgInfo = null;
   let misBingos = [];
   let sorteosGuardados = [];
@@ -784,7 +772,6 @@
       document.getElementById('orgLoginBox').style.display = 'none';
       document.getElementById('orgSelectBox').style.display = 'none';
       document.getElementById('espectadorBox').style.display = 'block';
-      document.querySelector('.api-bar').style.display = 'none';
       if (!valorSorteo?.trim()) {
         document.getElementById('espectadorMsg').textContent = 'Para ver el sorteo, abrí el enlace que te compartió el organizador.';
         return;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bingo Virtual — Conectado al backend</title>
+<title>Bingo Virtual — Gestión de sorteos</title>
 <script src="/enlace-publico-legacy.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,12 +23,8 @@
   .brand span{ color:var(--marquee); }
   .brand-sub{ font-family:var(--mono); font-size:11px; color:rgba(246,241,228,0.5); letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
 
-  .api-bar{ background:var(--felt-2); border-bottom:1px solid var(--line); padding:10px 32px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .api-bar label{ font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:rgba(246,241,228,0.5); }
-  .api-bar input{ background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:4px; padding:6px 10px; font-family:var(--mono); font-size:12px; width:260px; }
   .dot{ width:8px; height:8px; border-radius:50%; background:#666; display:inline-block; margin-right:6px; }
   .dot.ok{ background:var(--teal); } .dot.err{ background:var(--stub); }
-  #apiStatus{ font-family:var(--mono); font-size:11px; color:rgba(246,241,228,0.6); }
 
   nav.stubs{ display:flex; gap:0; overflow-x:auto; padding:0 24px; background:var(--felt); border-bottom:1px solid var(--line); }
   nav.stubs button{ font-family:var(--mono); font-size:12px; letter-spacing:0.5px; text-transform:uppercase; background:transparent; color:rgba(246,241,228,0.55); border:none; padding:16px 18px; cursor:pointer; white-space:nowrap; position:relative; border-right:1px dashed var(--line); }
@@ -150,7 +146,7 @@
     .tablero{ grid-template-columns:repeat(6,1fr); }
     .series-grid{ grid-template-columns:repeat(3,1fr); }
     .serie-cards{ grid-template-columns:1fr; }
-    header.top, .api-bar{ padding-left:18px; padding-right:18px; }
+    header.top{ padding-left:18px; padding-right:18px; }
     main{ padding:22px 16px 60px; }
   }
 </style>
@@ -161,16 +157,9 @@
 <header class="top">
   <div>
     <div class="brand">BINGO VIRTUAL<span>.</span></div>
-    <div class="brand-sub">Conectado a un backend real</div>
+
   </div>
 </header>
-
-<div class="api-bar">
-  <label>API</label>
-  <input type="text" id="apiBaseInput" value="http://localhost:4000" />
-  <button class="btn btn-ghost btn-sm" id="btnProbarApi">Probar conexión</button>
-  <span id="apiStatus"><span class="dot" id="apiDot"></span>sin probar</span>
-</div>
 
 <nav class="stubs" id="tabs">
   <button class="active" data-view="admin"><span class="num">01</span>Admin</button>
@@ -190,7 +179,7 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Admin</div>
       <h1 class="view-title">Organizadores</h1>
-      <div class="view-desc">Se loguea contra <span class="mono">POST /auth/login</span> y lista/aprueba organizadores reales de la base.</div>
+      <div class="view-desc">Revisá las solicitudes y administrá las cuentas de los organizadores.</div>
     </div>
     <div class="panel" id="adminLoginBox">
       <div class="form-grid">
@@ -220,7 +209,7 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Organizador</div>
       <h1 class="view-title">Tus sorteos</h1>
-      <div class="view-desc">Datos reales de <span class="mono">GET /sorteos</span>. Las acciones (publicar, cerrar, sortear) pegan directo a la API.</div>
+      <div class="view-desc">Administrá tus sorteos, confirmá pagos y compartí los enlaces para participar.</div>
     </div>
     <div class="panel" id="orgLoginBox">
       <div class="form-grid">
@@ -260,7 +249,7 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Organizador</div>
       <h1 class="view-title">Configurar sorteo</h1>
-      <div class="view-desc">Crea (<span class="mono">POST /sorteos</span>) y publica (<span class="mono">POST /sorteos/:id/publicar</span>) en un solo paso — ahí se generan los números o las series reales.</div>
+      <div class="view-desc">Elegí el tipo de sorteo y completá sus datos para publicarlo.</div>
     </div>
     <div id="crearNotice"></div>
     <div class="panel" id="crearForm">
@@ -296,7 +285,7 @@
       </div>
       <div id="crearMsg" style="margin-top:14px;"></div>
       <div class="row" style="margin-top:6px;">
-        <div class="muted" style="font-size:12px;">Se crea como borrador y se publica al toque.</div>
+        <div class="muted" style="font-size:12px;">Al publicar, los participantes podrán empezar a reservar.</div>
         <button class="btn btn-primary" id="btnCrearPublicar">Crear y publicar</button>
       </div>
     </div>
@@ -307,11 +296,11 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Público, sin cuenta</div>
       <h1 class="view-title">Tablero público</h1>
-      <div class="view-desc">Pegale el link_token de una rifa (o sorteo simple) publicado. Tocar un número lo reserva 10 minutos de verdad en la base.</div>
+      <div class="view-desc">Abrí el tablero del sorteo para consultar los números y las reservas.</div>
     </div>
     <div class="panel" style="margin-bottom:14px;">
       <div class="row" style="align-items:flex-end;">
-        <div class="field" style="flex:1; min-width:220px;"><label>Link token</label><input id="tableroToken" type="text" placeholder="ej: viaje-a-bariloche-2027-a1b2c3d4"></div>
+        <div class="field" style="flex:1; min-width:220px;"><label>Enlace del sorteo</label><input id="tableroToken" type="text" placeholder="Pegá el enlace del sorteo"></div>
         <button class="btn btn-primary" id="btnCargarTablero">Cargar tablero</button>
       </div>
     </div>
@@ -332,11 +321,11 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Público, sin cuenta</div>
       <h1 class="view-title">Elegí tu serie</h1>
-      <div class="view-desc">Acá no se elige un cartón suelto: se elige una <strong style="color:var(--paper);">serie</strong> completa, generada de verdad al publicar el bingo.</div>
+      <div class="view-desc">Elegí una <strong style="color:var(--paper);">serie</strong> completa de cartones para participar en el bingo.</div>
     </div>
     <div class="panel" style="margin-bottom:14px;">
       <div class="row" style="align-items:flex-end;">
-        <div class="field" style="flex:1; min-width:220px;"><label>Link token</label><input id="seriesToken" type="text" placeholder="ej: bingo-solidario-agosto-x9k2f8"></div>
+        <div class="field" style="flex:1; min-width:220px;"><label>Enlace del sorteo</label><input id="seriesToken" type="text" placeholder="Pegá el enlace del sorteo"></div>
         <button class="btn btn-primary" id="btnCargarSeries">Cargar series</button>
       </div>
     </div>
@@ -351,7 +340,7 @@
       <div class="series-grid" id="series-grid"></div>
       <div class="legend">
         <div class="legend-item"><span class="legend-dot" style="background:var(--teal);"></span> Libre</div>
-        <div class="legend-item"><span class="legend-dot" style="background:var(--marquee);"></span> Reservada (10 min)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--marquee);"></span> Pendiente de pago</div>
         <div class="legend-item"><span class="legend-dot" style="background:#3a2f2a;"></span> Vendida</div>
       </div>
     </div>
@@ -366,7 +355,7 @@
     </div>
     <div class="panel" style="margin-bottom:14px;">
       <div class="form-grid">
-        <div class="field"><label>Link de ingreso</label><input id="miSerieToken" type="text" placeholder="pegá el link del sorteo o su token"></div>
+        <div class="field"><label>Link de ingreso</label><input id="miSerieToken" type="text" placeholder="Pegá el enlace del sorteo"></div>
         <div class="field"><label>Número de serie</label><input id="miSerieNumero" type="number" min="1" step="1" placeholder="ej: 12"></div>
       </div>
       <div id="miSerieMsg" style="margin-top:10px;"></div>
@@ -384,11 +373,11 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Público</div>
       <h1 class="view-title">Resultado y auditoría</h1>
-      <div class="view-desc">Cualquiera puede pegar el link_token acá y verificar que el sorteo no se manipuló — recalculamos el hash en vivo.</div>
+      <div class="view-desc">Consultá el ganador y los datos de verificación del sorteo.</div>
     </div>
     <div class="panel" style="margin-bottom:14px;">
       <div class="row" style="align-items:flex-end;">
-        <div class="field" style="flex:1; min-width:220px;"><label>Link token</label><input id="resultadoToken" type="text" placeholder="ej: netflix-1-año-seguidores-ig-a1b2c3d4"></div>
+        <div class="field" style="flex:1; min-width:220px;"><label>Enlace del sorteo</label><input id="resultadoToken" type="text" placeholder="Pegá el enlace del sorteo"></div>
         <button class="btn btn-primary" id="btnVerResultado">Ver resultado</button>
       </div>
     </div>
@@ -405,8 +394,6 @@
       <button class="btn btn-primary" onclick="abrirBolillero()">Administrar sorteos en vivo</button>
     </div>
   </section>
-
-  <footer class="tip">Conectado en vivo a la API — nada de esto es data de mentira.</footer>
 </main>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -415,11 +402,10 @@
 
 <script>
 /* ================== estado global ================== */
-let API = document.getElementById('apiBaseInput').value.replace(/\/$/, '');
-if (!['localhost','127.0.0.1'].includes(window.location.hostname)) {
-  API = window.location.origin;
-  document.getElementById('apiBaseInput').value = API;
-}
+const API = ['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port === '8080'
+  ? `${window.location.protocol}//${window.location.hostname}:4000`
+  : window.location.origin;
+
 let adminToken = null, adminInfo = null;
 let orgToken = null, orgInfo = null;
 let misSorteosCache = [];
@@ -472,18 +458,6 @@ async function copiarTexto(texto, boton) {
   }
 }
 
-/* ================== barra de API ================== */
-document.getElementById('apiBaseInput').addEventListener('change', (e) => { API = e.target.value.replace(/\/$/, ''); });
-document.getElementById('btnProbarApi').addEventListener('click', async () => {
-  const dot = document.getElementById('apiDot'), status = document.getElementById('apiStatus');
-  try {
-    await api('/health');
-    dot.className = 'dot ok'; status.lastChild.textContent = ' conectado';
-  } catch (e) {
-    dot.className = 'dot err'; status.lastChild.textContent = ' sin conexión — ¿está corriendo el backend?';
-  }
-});
-
 /* ================== tabs ================== */
 const tabButtons = document.querySelectorAll('#tabs button');
 const views = document.querySelectorAll('.view');
@@ -510,51 +484,13 @@ function modalError(msg) {
   if (el) el.innerHTML = banner('err', msg);
 }
 
-/* flujo genérico de reservar + confirmar (número, serie o inscripción) */
-function flujoReserva({ titulo, reservarPath, confirmarPath, onDone }) {
-  openModal(`
-    <button class="modal-close" onclick="closeModal()">&times;</button>
-    <h3>${escapeHtml(titulo)}</h3>
-    <div id="modalMsg"></div>
-    <div class="field"><label>Teléfono (opcional)</label><input id="mContacto" type="tel" placeholder="11 1234-5678" /></div>
-    <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Continuar</button>
-  `);
-  document.getElementById('mBtnReservar').onclick = async () => {
-    const contacto = document.getElementById('mContacto').value.trim();
-    if (!contacto) return modalError('Ingresá un contacto');
-    try {
-      const data = await api(reservarPath, { method: 'POST', body: { contacto } });
-      pasoCodigo(contacto, data.codigoDev);
-    } catch (e) { modalError(e.message); }
-  };
-
-  function pasoCodigo(contacto, codigoDev) {
-    openModal(`
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-      <h3>Ingresá el código</h3>
-      <div id="modalMsg"></div>
-      ${codigoDev ? banner('ok', 'Modo dev — tu código es ' + codigoDev) : `<div class="muted" style="font-size:12px;margin-bottom:10px;">Te lo enviamos a ${escapeHtml(contacto)}</div>`}
-      <div class="field"><label>Código de 6 dígitos</label><input id="mCodigo" type="text" maxlength="6" /></div>
-      <button class="btn btn-primary" style="width:100%" id="mBtnConfirmar">Confirmar</button>
-    `);
-    document.getElementById('mBtnConfirmar').onclick = async () => {
-      const codigo = document.getElementById('mCodigo').value.trim();
-      if (!codigo) return modalError('Ingresá el código');
-      try {
-        const data = await api(confirmarPath, { method: 'POST', body: { contacto, codigo } });
-        onDone(data, contacto);
-      } catch (e) { modalError(e.message); }
-    };
-  }
-}
-
 function abrirReservaNumero(token, valor) {
   openModal(`
     <button class="modal-close" onclick="closeModal()">&times;</button>
     <h3>Reservar número ${valor}</h3>
     <div id="modalMsg"></div>
     <div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" placeholder="Juan Pérez" /></div>
-    <div class="field"><label>Email o celular</label><input id="mContacto" type="text" placeholder="vos@ejemplo.com" /></div>
+    <div class="field"><label>Teléfono (opcional)</label><input id="mContacto" type="tel" autocomplete="tel" placeholder="11 1234-5678" /></div>
     <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Reservar pendiente de pago</button>
   `);
   document.getElementById('mBtnReservar').onclick = async () => {
@@ -757,8 +693,8 @@ function renderSorteoCard(s) {
   if (s.estado === 'SORTEADO') acciones = `<button class="btn btn-ghost btn-sm" onclick="irAVerResultado('${s.linkToken}')">Ver resultado</button>`;
   const enlacePublico = s.linkToken ? urlPublicaSorteo(s) : '';
   const datosPublicos = s.linkToken ? `
-    <div class="muted" style="font-size:11px;margin-top:10px;">Token público</div>
-    <div class="meta" style="overflow-wrap:anywhere;">${escapeHtml(s.linkToken)}</div>
+    <div class="muted" style="font-size:11px;margin-top:10px;">Enlace para participar</div>
+    <div class="meta" style="overflow-wrap:anywhere;">${escapeHtml(enlacePublico)}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px;">
       <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace público</a>
       <button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlPublicaSorteo(misSorteosCache.find(x => x.id === '${s.id}')), this)">Copiar enlace</button>
@@ -859,7 +795,7 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
     const sorteoPublicado = { ...creado, ...publicado, tipo: tipoSeleccionado };
     const enlacePublico = urlPublicaSorteo(sorteoPublicado);
     const jump = `irAVerTablero('${publicado.linkToken}','${tipoSeleccionado}','${publicado.id}')`;
-    msg.innerHTML = banner('ok', 'Publicado. Link token: ' + publicado.linkToken) +
+    msg.innerHTML = banner('ok', 'Sorteo publicado. Ya podés compartir el enlace para participar.') +
       `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
         <button class="btn btn-ghost btn-sm" onclick="${jump}">Ir al tablero público</button>
         <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace para clientes</a>
@@ -876,7 +812,7 @@ document.getElementById('btnCargarTablero').addEventListener('click', () => {
   cargarTablero();
 });
 async function cargarTablero() {
-  const token = document.getElementById('tableroToken').value.trim();
+  const token = obtenerTokenSorteo(document.getElementById('tableroToken').value);
   if (!token) return;
   tableroTokenActual = token;
   try {
@@ -966,7 +902,7 @@ async function cambiarEstadoInscripcion(id, estado) {
 /* ================== 05 SERIES DE BINGO ================== */
 document.getElementById('btnCargarSeries').addEventListener('click', cargarSeries);
 async function cargarSeries() {
-  const token = document.getElementById('seriesToken').value.trim();
+  const token = obtenerTokenSorteo(document.getElementById('seriesToken').value);
   if (!token) return;
   seriesTokenActual = token;
   try {
@@ -1077,7 +1013,7 @@ async function cargarMiSerie() {
 /* ================== 07 RESULTADO ================== */
 document.getElementById('btnVerResultado').addEventListener('click', verResultado);
 async function verResultado() {
-  const token = document.getElementById('resultadoToken').value.trim();
+  const token = obtenerTokenSorteo(document.getElementById('resultadoToken').value);
   const panel = document.getElementById('resultadoPanel');
   if (!token) return;
   try {
@@ -1136,9 +1072,7 @@ if (tokenPublico) {
   tableroOrganizadorSorteoId = null;
   tableroOrganizadorTipo = null;
   document.querySelector('header.top').style.display = 'none';
-  document.querySelector('.api-bar').style.display = 'none';
   document.getElementById('tabs').style.display = 'none';
-  document.querySelector('footer.tip').style.display = 'none';
   if (tipoPublico === 'BINGO' && seriePublica) {
     document.getElementById('miSerieToken').value = tokenPublico;
     document.getElementById('miSerieNumero').value = seriePublica;
