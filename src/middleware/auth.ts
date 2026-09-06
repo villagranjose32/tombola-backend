@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { prisma } from "../db";
+import { asyncHandler } from "./errorHandler";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-cambiar";
 
@@ -47,7 +48,7 @@ export function requiereRol(...roles: Array<"ADMIN" | "ORGANIZADOR">) {
 }
 
 /** Además de estar logueado como organizador, tiene que estar APROBADO por un admin. */
-export async function requiereOrganizadorAprobado(req: Request, res: Response, next: NextFunction) {
+export const requiereOrganizadorAprobado = asyncHandler(async (req, res, next) => {
   if (!req.usuario) return res.status(401).json({ error: "Falta autenticación" });
   const usuario = await prisma.usuario.findUnique({ where: { id: req.usuario.sub } });
   if (!usuario) return res.status(401).json({ error: "Usuario no encontrado" });
@@ -56,4 +57,4 @@ export async function requiereOrganizadorAprobado(req: Request, res: Response, n
     return res.status(403).json({ error: "Tu cuenta todavía no fue aprobada por un admin" });
   }
   next();
-}
+});

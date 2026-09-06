@@ -25,8 +25,7 @@ async function main() {
     },
   });
 
-  console.log(`Admin creado -> email: ${email} / password: ${password}`);
-  console.log("Cambiá esa contraseña en cuanto puedas.");
+  console.log(`Admin creado -> email: ${email}`);
 }
 
 main()

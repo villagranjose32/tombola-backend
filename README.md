@@ -52,6 +52,23 @@ Accesos después del despliegue:
 - Organizadores: `/organizador.html`
 - Bolillero: `/sorteo-en-vivo.html`
 
+El arranque aplica las migraciones incluidas en `prisma/migrations` y luego
+crea el administrador. Si falla cualquiera de esos pasos, el servicio se
+detiene y deja el error en los logs, para evitar publicar una aplicación
+sin las tablas necesarias para ingresar o registrarse.
+
+Si una versión anterior mostraba «Error interno del servidor» al ingresar
+o registrarse, desplegá esta versión y revisá los logs de arranque. Deben
+confirmar que se aplicaron las migraciones y que el administrador se creó
+o ya existía. Verificá que `DATABASE_URL` apunte a la base del servicio y
+que `ADMIN_EMAIL` y `ADMIN_PASSWORD` estén configurados. Cambiar esas
+variables no modifica la contraseña de un administrador que ya existe.
+
+La migración inicial está preparada para una base vacía. Si la base ya
+tiene tablas creadas manualmente o con `prisma db push`, hay que comparar
+su esquema y establecer una línea base de migraciones antes de desplegar;
+no borres tablas ni reinicies una base con datos para resolver ese caso.
+
 No uses las credenciales de ejemplo en producción. El plan gratuito puede
 entrar en reposo cuando no recibe tráfico; para sorteos reales conviene un
 servicio pago que permanezca activo.

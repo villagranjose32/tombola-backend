@@ -9,35 +9,44 @@ import { emitirCambio } from "../realtime";
  * interactuar.
  */
 export function iniciarLimpiezaReservas() {
-  setInterval(async () => {
-    const ahora = new Date();
+  let ejecutando = false;
+  return setInterval(async () => {
+    if (ejecutando) return;
+    ejecutando = true;
+    try {
+      const ahora = new Date();
 
-    const numerosVencidos = await prisma.numero.findMany({
-      where: { estado: "RESERVADO", reservadoHasta: { lt: ahora } },
-      include: { sorteo: true },
-    });
-    for (const n of numerosVencidos) {
-      await prisma.numero.update({
-        where: { id: n.id },
-        data: { estado: "LIBRE", participanteId: null, codigoHash: null, reservadoHasta: null },
+      const numerosVencidos = await prisma.numero.findMany({
+        where: { estado: "RESERVADO", reservadoHasta: { lt: ahora } },
+        include: { sorteo: true },
       });
-      if (n.sorteo.linkToken) {
-        emitirCambio(n.sorteo.linkToken, { tipo: "numero", valor: n.valor, estado: "LIBRE" });
+      for (const n of numerosVencidos) {
+        await prisma.numero.update({
+          where: { id: n.id },
+          data: { estado: "LIBRE", participanteId: null, codigoHash: null, reservadoHasta: null },
+        });
+        if (n.sorteo.linkToken) {
+          emitirCambio(n.sorteo.linkToken, { tipo: "numero", valor: n.valor, estado: "LIBRE" });
+        }
       }
-    }
 
-    const seriesVencidas = await prisma.serie.findMany({
-      where: { estado: "RESERVADO", reservadoHasta: { lt: ahora } },
-      include: { sorteo: true },
-    });
-    for (const s of seriesVencidas) {
-      await prisma.serie.update({
-        where: { id: s.id },
-        data: { estado: "LIBRE", participanteId: null, codigoHash: null, reservadoHasta: null },
+      const seriesVencidas = await prisma.serie.findMany({
+        where: { estado: "RESERVADO", reservadoHasta: { lt: ahora } },
+        include: { sorteo: true },
       });
-      if (s.sorteo.linkToken) {
-        emitirCambio(s.sorteo.linkToken, { tipo: "serie", numero: s.numero, estado: "LIBRE" });
+      for (const s of seriesVencidas) {
+        await prisma.serie.update({
+          where: { id: s.id },
+          data: { estado: "LIBRE", participanteId: null, codigoHash: null, reservadoHasta: null },
+        });
+        if (s.sorteo.linkToken) {
+          emitirCambio(s.sorteo.linkToken, { tipo: "serie", numero: s.numero, estado: "LIBRE" });
+        }
       }
+    } catch (error) {
+      console.error("Error al liberar reservas vencidas:", error);
+    } finally {
+      ejecutando = false;
     }
   }, 60_000);
 }
