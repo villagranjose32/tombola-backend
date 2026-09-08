@@ -31,8 +31,8 @@ const configSimpleSchema = z.object({
 
 const crearSorteoSchema = z.object({
   tipo: z.enum(["RIFA", "BINGO", "SORTEO_SIMPLE"]),
-  titulo: z.string().min(3),
-  descripcion: z.string().optional(),
+  titulo: z.string().trim().min(3),
+  descripcion: z.string().trim().optional(),
   fechaCierre: z.string().datetime().optional(),
   config: z.record(z.any()),
 });
@@ -50,18 +50,26 @@ sorteosRouter.post(
     const datos = crearSorteoSchema.parse(req.body);
     const config = validarConfigPorTipo(datos.tipo, datos.config);
 
-    const sorteo = await prisma.sorteo.create({
-      data: {
-        organizadorId: req.usuario!.sub,
-        tipo: datos.tipo,
-        titulo: datos.titulo,
-        descripcion: datos.descripcion,
-        fechaCierre: datos.fechaCierre ? new Date(datos.fechaCierre) : undefined,
-        config,
-        estado: "BORRADOR",
-      },
+    const normalizar = (texto: string | null | undefined) => (texto || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
+    const fechaCierre = datos.fechaCierre ? new Date(datos.fechaCierre) : null;
+    const resultado = await prisma.$transaction(async tx => {
+      // Serializa creaciones del mismo organizador incluso desde distintas pestañas/procesos.
+      await tx.$queryRaw`SELECT id FROM usuarios WHERE id = ${req.usuario!.sub} FOR UPDATE`;
+      const candidatos = await tx.sorteo.findMany({where: {organizadorId: req.usuario!.sub, tipo: datos.tipo}});
+      const existente = candidatos.find(s => {
+        if (normalizar(s.titulo) !== normalizar(datos.titulo) || normalizar(s.descripcion) !== normalizar(datos.descripcion) ||
+            s.fechaCierre?.getTime() !== fechaCierre?.getTime()) return false;
+        try { return JSON.stringify(validarConfigPorTipo(s.tipo, s.config)) === JSON.stringify(config); }
+        catch { return false; }
+      });
+      if (existente) return {sorteo: existente, creado: false};
+      const sorteo = await tx.sorteo.create({data: {
+        organizadorId: req.usuario!.sub, tipo: datos.tipo, titulo: datos.titulo,
+        descripcion: datos.descripcion, fechaCierre, config, estado: "BORRADOR",
+      }});
+      return {sorteo, creado: true};
     });
-    res.status(201).json(sorteo);
+    res.status(resultado.creado ? 201 : 200).json(resultado.sorteo);
   })
 );
 
@@ -209,13 +217,15 @@ sorteosRouter.patch(
 sorteosRouter.post(
   "/:id/publicar",
   asyncHandler(async (req, res) => {
-    const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
-    if (sorteo.estado !== "BORRADOR") throw new HttpError(409, "El sorteo ya fue publicado");
-
-    const linkToken = generarLinkToken(sorteo.titulo);
-    const config = sorteo.config as Record<string, number>;
-
-    await prisma.$transaction(async (tx) => {
+    const actualizado = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM sorteos WHERE id = ${req.params.id} FOR UPDATE`;
+      const sorteo = await tx.sorteo.findUnique({where: {id: req.params.id}});
+      if (!sorteo) throw new HttpError(404, "Sorteo no encontrado");
+      if (sorteo.organizadorId !== req.usuario!.sub) throw new HttpError(403, "Ese sorteo no es tuyo");
+      if (sorteo.linkToken) return sorteo;
+      if (sorteo.estado !== "BORRADOR") throw new HttpError(409, "El sorteo no se puede publicar");
+      const linkToken = generarLinkToken(sorteo.titulo);
+      const config = sorteo.config as Record<string, number>;
       await tx.sorteo.update({
         where: { id: sorteo.id },
         data: { estado: "ACTIVO", linkToken },
@@ -254,12 +264,11 @@ sorteosRouter.post(
         }
       }
       // SORTEO_SIMPLE no necesita generar nada: la gente se inscribe directo.
+      return tx.sorteo.findUniqueOrThrow({where: {id: sorteo.id}});
     });
-
-    const actualizado = await prisma.sorteo.findUnique({ where: { id: sorteo.id } });
     res.json({
       ...actualizado,
-      linkPublico: `${(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")}/tablero-publico.html?sorteo=${encodeURIComponent(linkToken)}`,
+      linkPublico: `${(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")}/tablero-publico.html?sorteo=${encodeURIComponent(actualizado.linkToken!)}`,
     });
   })
 );

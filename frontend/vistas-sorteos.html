@@ -659,6 +659,7 @@ document.getElementById('btnAdminLogin').addEventListener('click', async () => {
     document.getElementById('adminQuien').textContent = `${adminInfo.nombre} · ${adminInfo.email}`;
     cargarAdmin();
   } catch (e) { msg.innerHTML = banner('err', e.message); }
+  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
 });
 document.getElementById('btnAdminLogout').addEventListener('click', () => {
   adminToken = null; adminInfo = null;
@@ -729,6 +730,7 @@ document.getElementById('btnRegistrar').addEventListener('click', async () => {
     document.getElementById('regPass').value = '';
     document.getElementById('regPassRepeat').value = '';
   } catch (e) { msg.innerHTML = banner('err', e.message); }
+  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
 });
 document.getElementById('btnOrgLogin').addEventListener('click', async () => {
   const email = document.getElementById('orgEmail').value.trim();
@@ -746,6 +748,7 @@ document.getElementById('btnOrgLogin').addEventListener('click', async () => {
     refrescarNoticeCrear();
     renderPanelOrganizador();
   } catch (e) { msg.innerHTML = banner('err', e.message); }
+  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
 });
 document.getElementById('btnOrgLogout').addEventListener('click', () => {
   orgToken = null; orgInfo = null;
@@ -871,7 +874,9 @@ function refrescarNoticeCrear() {
   }
 }
 
+let publicandoSorteo = false;
 document.getElementById('btnCrearPublicar').addEventListener('click', async () => {
+  if (publicandoSorteo) return;
   const msg = document.getElementById('crearMsg');
   msg.innerHTML = '';
   const titulo = document.getElementById('fTitulo').value.trim();
@@ -888,12 +893,17 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
   const body = { tipo: tipoSeleccionado, titulo, descripcion, config };
   if (fechaCierreVal) body.fechaCierre = new Date(fechaCierreVal).toISOString();
 
+  const boton = document.getElementById('btnCrearPublicar');
+  const textoBoton = boton.textContent;
+  publicandoSorteo = true;
+  boton.disabled = true;
+  boton.textContent = 'Publicando…';
   try {
     const creado = await api('/sorteos', { method: 'POST', token: orgToken, body });
     const publicado = await api(`/sorteos/${creado.id}/publicar`, { method: 'POST', token: orgToken });
-    const sorteoPublicado = { ...creado, ...publicado, tipo: tipoSeleccionado };
+    const sorteoPublicado = { ...creado, ...publicado, tipo: body.tipo };
     const enlacePublico = urlPublicaSorteo(sorteoPublicado);
-    const jump = `irAVerTablero('${publicado.linkToken}','${tipoSeleccionado}','${publicado.id}')`;
+    const jump = `irAVerTablero('${publicado.linkToken}','${body.tipo}','${publicado.id}')`;
     msg.innerHTML = banner('ok', 'Sorteo publicado. Ya podés compartir el enlace para participar.') +
       `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
         <button class="btn btn-ghost btn-sm" onclick="${jump}">Ir al tablero público</button>
@@ -902,6 +912,7 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
       </div>`;
     cargarMisSorteos();
   } catch (e) { msg.innerHTML = banner('err', e.message); }
+  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
 });
 
 /* ================== 04 TABLERO (RIFA / SORTEO_SIMPLE) ================== */
