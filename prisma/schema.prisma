@@ -57,6 +57,8 @@ model Usuario {
 }
 
 model EventoEnVivo {
+  secuencia        Int               @default(0)
+  ronda            Int               @default(0)
   id               String            @id @default(uuid())
   organizadorId    String
   organizador      Usuario           @relation(fields: [organizadorId], references: [id])
@@ -213,6 +215,8 @@ model ResultadoSorteo {
 // Vive aparte de ResultadoSorteo porque representa una secuencia de bolillas.
 // El estado persiste para que organizadores y espectadores puedan reconectarse.
 model TableroEnVivo {
+  secuencia        Int               @default(0)
+  ronda            Int               @default(0)
   id               String            @id @default(uuid())
   sorteoId         String            @unique
   sorteo           Sorteo            @relation(fields: [sorteoId], references: [id])

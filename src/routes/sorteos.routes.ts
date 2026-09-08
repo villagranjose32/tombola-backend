@@ -8,6 +8,7 @@ import { generarLinkToken } from "../utils/tokens";
 import { generarSerieDeterministica } from "../utils/bingoGenerator";
 import { ejecutarSorteoAuditable, CandidatoSorteo } from "../utils/sorteoEngine";
 import { emitirCambio } from "../realtime";
+import { estadoEnVivo, modificarTablero } from "../utils/estadoEnVivo";
 
 export const sorteosRouter = Router();
 
@@ -339,21 +340,6 @@ sorteosRouter.get(
 
 // ============ SORTEO EN VIVO (bolillero) — solo para BINGO ============
 
-function serializarTablero(t: {
-  modo: string; rangoMax: number; umbralRepeticion: number | null;
-  bolillas: unknown; conteos: unknown; ganadorNumero: number | null; estado: string;
-}) {
-  return {
-    modo: t.modo,
-    rangoMax: t.rangoMax,
-    umbralRepeticion: t.umbralRepeticion,
-    bolillas: t.bolillas as number[],
-    conteos: t.conteos as Record<string, number>,
-    ganadorNumero: t.ganadorNumero,
-    estado: t.estado,
-  };
-}
-
 const iniciarEnVivoSchema = z.object({
   modo: z.enum(["BINGO", "REPETICION"]).default("BINGO"),
   rangoMax: z.number().int().min(2).max(999).default(90),
@@ -367,9 +353,10 @@ sorteosRouter.post(
     if (sorteo.tipo !== "BINGO") throw new HttpError(400, "El sorteo en vivo solo aplica a bingos");
     const datos = iniciarEnVivoSchema.parse(req.body);
 
-    const tablero = await prisma.tableroEnVivo.upsert({
+    const tablero = await modificarTablero(sorteo.id, tx => tx.tableroEnVivo.upsert({
       where: { sorteoId: sorteo.id },
       update: {
+        secuencia: { increment: 1 }, ronda: { increment: 1 },
         modo: datos.modo,
         rangoMax: datos.rangoMax,
         umbralRepeticion: datos.umbralRepeticion ?? null,
@@ -384,10 +371,10 @@ sorteosRouter.post(
         rangoMax: datos.rangoMax,
         umbralRepeticion: datos.umbralRepeticion ?? null,
       },
-    });
+    }));
 
-    if (sorteo.linkToken) emitirCambio(sorteo.linkToken, { tipo: "bolilla", accion: "iniciado", ...serializarTablero(tablero) });
-    res.json(tablero);
+    if (sorteo.linkToken) emitirCambio(sorteo.linkToken, { tipo: "bolilla", type: "STATE_UPDATE", accion: "iniciado", ...estadoEnVivo(tablero), titulo: sorteo.titulo });
+    res.json(estadoEnVivo(tablero));
   })
 );
 
@@ -395,46 +382,49 @@ sorteosRouter.post(
   "/:id/en-vivo/extraer",
   asyncHandler(async (req, res) => {
     const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
-    const tablero = await prisma.tableroEnVivo.findUnique({ where: { sorteoId: sorteo.id } });
-    if (!tablero) throw new HttpError(409, "Primero iniciá el tablero en vivo");
-    if (tablero.estado === "FINALIZADO") throw new HttpError(409, "El tablero ya finalizó");
+    const actualizado = await modificarTablero(sorteo.id, async tx => {
+      const tablero = await tx.tableroEnVivo.findUnique({ where: { sorteoId: sorteo.id } });
+      if (!tablero) throw new HttpError(409, "Primero iniciá el tablero en vivo");
+      if (tablero.estado === "FINALIZADO") throw new HttpError(409, "El tablero ya finalizó");
 
-    const bolillas = [...(tablero.bolillas as number[])];
-    const conteos = { ...(tablero.conteos as Record<string, number>) };
+      const bolillas = [...(tablero.bolillas as number[])];
+      const conteos = { ...(tablero.conteos as Record<string, number>) };
 
-    let numero: number;
-    if (tablero.modo === "BINGO") {
-      const usados = new Set(bolillas);
-      const disponibles: number[] = [];
-      for (let n = 1; n <= tablero.rangoMax; n++) if (!usados.has(n)) disponibles.push(n);
-      if (disponibles.length === 0) throw new HttpError(409, "Ya salieron todas las bolillas");
-      numero = disponibles[crypto.randomInt(0, disponibles.length)];
-    } else {
-      numero = crypto.randomInt(1, tablero.rangoMax + 1);
-    }
+      let numero: number;
+      if (tablero.modo === "BINGO") {
+        const usados = new Set(bolillas);
+        const disponibles: number[] = [];
+        for (let n = 1; n <= tablero.rangoMax; n++) if (!usados.has(n)) disponibles.push(n);
+        if (disponibles.length === 0) throw new HttpError(409, "Ya salieron todas las bolillas");
+        numero = disponibles[crypto.randomInt(0, disponibles.length)];
+      } else {
+        numero = crypto.randomInt(1, tablero.rangoMax + 1);
+      }
 
-    bolillas.push(numero);
-    conteos[numero] = (conteos[numero] || 0) + 1;
+      bolillas.push(numero);
+      conteos[numero] = (conteos[numero] || 0) + 1;
 
-    let ganadorNumero = tablero.ganadorNumero;
-    let estado = tablero.estado;
-    if (tablero.modo === "REPETICION" && tablero.umbralRepeticion && !ganadorNumero) {
-      if (conteos[numero] >= tablero.umbralRepeticion) {
-        ganadorNumero = numero;
+      let ganadorNumero = tablero.ganadorNumero;
+      let estado = tablero.estado;
+      if (tablero.modo === "REPETICION" && tablero.umbralRepeticion && !ganadorNumero) {
+        if (conteos[numero] >= tablero.umbralRepeticion) {
+          ganadorNumero = numero;
+          estado = "FINALIZADO";
+        }
+      }
+      if (tablero.modo === "BINGO" && bolillas.length >= tablero.rangoMax) {
         estado = "FINALIZADO";
       }
-    }
-    if (tablero.modo === "BINGO" && bolillas.length >= tablero.rangoMax) {
-      estado = "FINALIZADO";
-    }
 
-    const actualizado = await prisma.tableroEnVivo.update({
-      where: { id: tablero.id },
-      data: { bolillas, conteos, ganadorNumero, estado },
+      return tx.tableroEnVivo.update({
+        where: { id: tablero.id },
+        data: { bolillas, conteos, ganadorNumero, estado, secuencia: { increment: 1 } },
+      });
     });
+    const numero = estadoEnVivo(actualizado).numeroActual;
 
-    if (sorteo.linkToken) emitirCambio(sorteo.linkToken, { tipo: "bolilla", accion: "extraida", numero, ...serializarTablero(actualizado) });
-    res.json({ numero, tablero: actualizado });
+    if (sorteo.linkToken) emitirCambio(sorteo.linkToken, { tipo: "bolilla", type: "STATE_UPDATE", accion: "extraida", numero, ...estadoEnVivo(actualizado), titulo: sorteo.titulo });
+    res.json({ numero, tablero: estadoEnVivo(actualizado) });
   })
 );
 
@@ -442,16 +432,18 @@ sorteosRouter.post(
   "/:id/en-vivo/reiniciar",
   asyncHandler(async (req, res) => {
     const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
-    const existente = await prisma.tableroEnVivo.findUnique({ where: { sorteoId: sorteo.id } });
-    if (!existente) throw new HttpError(404, "Todavía no se inició un tablero en vivo para este sorteo");
+    const actualizado = await modificarTablero(sorteo.id, async tx => {
+      const existente = await tx.tableroEnVivo.findUnique({ where: { sorteoId: sorteo.id } });
+      if (!existente) throw new HttpError(404, "Todavía no se inició un tablero en vivo para este sorteo");
 
-    const actualizado = await prisma.tableroEnVivo.update({
-      where: { id: existente.id },
-      data: { bolillas: [], conteos: {}, ganadorNumero: null, estado: "EN_CURSO" },
+      return tx.tableroEnVivo.update({
+        where: { id: existente.id },
+        data: { bolillas: [], conteos: {}, ganadorNumero: null, estado: "EN_CURSO", secuencia: { increment: 1 }, ronda: { increment: 1 } },
+      });
     });
 
-    if (sorteo.linkToken) emitirCambio(sorteo.linkToken, { tipo: "bolilla", accion: "reiniciado", ...serializarTablero(actualizado) });
-    res.json(actualizado);
+    if (sorteo.linkToken) emitirCambio(sorteo.linkToken, { tipo: "bolilla", type: "STATE_UPDATE", accion: "reiniciado", ...estadoEnVivo(actualizado), titulo: sorteo.titulo });
+    res.json(estadoEnVivo(actualizado));
   })
 );
 
@@ -461,6 +453,6 @@ sorteosRouter.get(
     const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
     const tablero = await prisma.tableroEnVivo.findUnique({ where: { sorteoId: sorteo.id } });
     if (!tablero) throw new HttpError(404, "Todavía no se inició el tablero en vivo para este sorteo");
-    res.json(tablero);
+    res.json(estadoEnVivo(tablero));
   })
 );

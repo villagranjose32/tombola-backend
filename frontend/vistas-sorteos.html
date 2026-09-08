@@ -149,6 +149,8 @@
     header.top{ padding-left:18px; padding-right:18px; }
     main{ padding:22px 16px 60px; }
   }
+  .password-wrap{position:relative}.password-wrap input{padding-right:48px}.password-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:36px;display:grid;place-items:center;background:transparent;border:0;color:var(--paper);cursor:pointer}.password-eye svg{width:22px;height:22px}.password-eye[aria-pressed="false"] .eye-slash{display:none}
+  #tabs{position:sticky;top:0;z-index:40;background:var(--ink)}
 </style>
 </head>
 <body>
@@ -226,7 +228,8 @@
       <div class="form-grid">
         <div class="field full"><label>Nombre / organización</label><input id="regNombre" type="text"></div>
         <div class="field"><label>Email</label><input id="regEmail" type="email"></div>
-        <div class="field"><label>Contraseña (mín. 8)</label><input id="regPass" type="password"></div>
+        <div class="field"><label for="regPass">Contraseña (mín. 8)</label><div class="password-wrap"><input id="regPass" type="password" autocomplete="new-password" minlength="8"><button type="button" class="password-eye" data-password-target="regPass" aria-label="Mostrar contraseña" aria-pressed="false" aria-controls="regPass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></div></div>
+        <div class="field"><label for="regPassRepeat">Repetir contraseña</label><div class="password-wrap"><input id="regPassRepeat" type="password" autocomplete="new-password" minlength="8"><button type="button" class="password-eye" data-password-target="regPassRepeat" aria-label="Mostrar contraseña" aria-pressed="false" aria-controls="regPassRepeat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></div></div>
       </div>
       <div id="orgRegistroMsg"></div>
       <div class="row" style="margin-top:12px; justify-content:flex-start; gap:10px;">
@@ -620,15 +623,29 @@ document.getElementById('btnVolverLogin').addEventListener('click', () => {
   document.getElementById('orgRegistroBox').style.display = 'none';
   document.getElementById('orgLoginBox').style.display = 'block';
 });
+document.querySelectorAll('[data-password-target]').forEach(button => button.addEventListener('click', () => {
+  const input = document.getElementById(button.dataset.passwordTarget);
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.setAttribute('aria-pressed', String(visible));
+  button.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+}));
 document.getElementById('btnRegistrar').addEventListener('click', async () => {
   const nombre = document.getElementById('regNombre').value.trim();
   const email = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPass').value;
   const msg = document.getElementById('orgRegistroMsg');
+  if (password !== document.getElementById('regPassRepeat').value) {
+    msg.innerHTML = banner('err', 'Las contraseñas no coinciden. Volvé a escribirlas.');
+    document.getElementById('regPassRepeat').focus();
+    return;
+  }
   try {
     const data = await api('/auth/registro', { method: 'POST', body: { nombre, email, password } });
     msg.innerHTML = banner('ok', data.mensaje);
     document.getElementById('orgEmail').value = email;
+    document.getElementById('regPass').value = '';
+    document.getElementById('regPassRepeat').value = '';
   } catch (e) { msg.innerHTML = banner('err', e.message); }
 });
 document.getElementById('btnOrgLogin').addEventListener('click', async () => {
@@ -1048,6 +1065,23 @@ function conectarRealtime(token, cual, onEvento) {
 
 refrescarNoticeCrear();
 
+async function restaurarSesionOrganizador() {
+  const token = sessionStorage.getItem('tombolaOrgToken');
+  if (!token) return;
+  try {
+    const response = await fetch(API + '/auth/me', {headers: {Authorization: 'Bearer ' + token}});
+    if (!response.ok) { if (response.status === 401) sessionStorage.removeItem('tombolaOrgToken'); return; }
+    const usuario = await response.json();
+    if (usuario.rol !== 'ORGANIZADOR') return;
+    orgToken = token; orgInfo = usuario;
+    document.getElementById('orgLoginBox').style.display = 'none';
+    document.getElementById('orgPanel').style.display = 'block';
+    document.getElementById('orgQuien').textContent = `${usuario.nombre} · ${usuario.email} · ${usuario.estado}`;
+    refrescarNoticeCrear();
+    await renderPanelOrganizador();
+  } catch (_) { document.getElementById('orgLoginMsg').innerHTML = banner('err', 'No se pudo recuperar la sesión. Intentá ingresar nuevamente.'); }
+}
+
 /* Un enlace compartido abre directamente el tablero correspondiente. */
 const paramsPublicos = new URLSearchParams(window.location.search);
 const portalPrivado = paramsPublicos.get('portal');
@@ -1061,8 +1095,10 @@ if (portalPrivado === 'admin') {
 } else if (portalPrivado === 'organizador') {
   const adminTab = document.querySelector('#tabs button[data-view="admin"]');
   if (adminTab) adminTab.style.display = 'none';
-  irATab('dash');
-  history.replaceState(null, '', '/organizador.html');
+  const vista = paramsPublicos.get('vista');
+  irATab(['dash','crear','tablero','series','carton','resultado','vivo'].includes(vista) ? vista : 'dash');
+  history.replaceState(null, '', '/organizador.html' + (vista ? '?vista=' + encodeURIComponent(vista) : ''));
+  restaurarSesionOrganizador();
 } else if (!tokenPublico) {
   const adminTab = document.querySelector('#tabs button[data-view="admin"]');
   if (adminTab) adminTab.style.display = 'none';

@@ -7,6 +7,7 @@ import { generarCodigoVerificacion, hashCodigo, verificarCodigo } from "../utils
 import { firmarReingreso, verificarReingreso } from "../utils/reingreso";
 import { generarPdfSerie } from "../utils/pdfSerie";
 import { emitirCambio } from "../realtime";
+import { estadoEnVivo } from "../utils/estadoEnVivo";
 import { verificarResultado } from "../utils/sorteoEngine";
 
 export const publicoRouter = Router();
@@ -340,7 +341,7 @@ publicoRouter.get(
     const sorteo = await obtenerSorteoPorToken(req.params.token);
     const tablero = await prisma.tableroEnVivo.findUnique({ where: { sorteoId: sorteo.id } });
     if (!tablero) throw new HttpError(404, "Este bingo todavía no arrancó el sorteo en vivo");
-    res.json(tablero);
+    res.set("Cache-Control", "no-store").json({ type: "STATE_SNAPSHOT", ...estadoEnVivo(tablero) });
   })
 );
 

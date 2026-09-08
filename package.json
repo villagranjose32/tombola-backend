@@ -13,7 +13,11 @@
     "seed:prod": "node dist/prisma/seed.js",
     "migrate": "prisma migrate dev",
     "seed": "prisma db seed",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "test:live": "node tests/live-sync.test.cjs",
+    "test:live:server": "npm run build && node tests/live-server.test.cjs",
+    "test:live:browser": "node tests/live-browser.cjs",
+    "test:bingo": "npm run build && node tests/ganadores-bingo.test.cjs"
   },
   "dependencies": {
     "@prisma/client": "^5.19.1",

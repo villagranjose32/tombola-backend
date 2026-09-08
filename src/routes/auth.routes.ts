@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../db";
-import { firmarToken } from "../middleware/auth";
+import { firmarToken, requiereAuth } from "../middleware/auth";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 
 export const authRouter = Router();
@@ -71,3 +71,12 @@ authRouter.post(
     });
   })
 );
+
+// Permite conservar la sesión al navegar entre el panel y el bolillero.
+authRouter.get("/me", requiereAuth, asyncHandler(async (req, res) => {
+  const usuario = await prisma.usuario.findUnique({ where: { id: req.usuario!.sub }, select: {
+    id: true, nombre: true, email: true, rol: true, estado: true,
+  } });
+  if (!usuario) throw new HttpError(401, "La sesión ya no está disponible");
+  res.set("Cache-Control", "no-store").json(usuario);
+}));
