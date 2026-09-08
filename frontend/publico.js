@@ -48,7 +48,7 @@
     boton.disabled = true;
     const datos = new FormData(event.target);
     try {
-      const data = await api(seleccion.path, {nombre: datos.get('nombre').trim(), telefono: datos.get('telefono').trim()});
+      const data = await api(seleccion.path, {nombre: datos.get('nombre').trim(), dni: datos.get('dni').trim(), telefono: datos.get('telefono').trim()});
       $('reserva').close();
       await cargar();
       $('mensaje').textContent = data.mensaje;
@@ -81,7 +81,9 @@
       const numero = bingo ? item.numero : item.valor;
       const boton = document.createElement('button');
       boton.className = 'item ' + item.estado.toLowerCase();
-      boton.innerHTML = `${bingo ? 'Serie ' : ''}${escape(numero)}<span>${bingo ? escape(item.cantidadCartones) + ' cartones · ' : ''}${escape(item.estado === 'LIBRE' ? 'Disponible' : item.estado === 'RESERVADO' ? 'Pendiente' : 'Vendido')}</span>`;
+      boton.textContent = String(numero);
+      const estado = item.estado === 'LIBRE' ? 'Disponible' : item.estado === 'RESERVADO' ? 'Pendiente' : 'Vendido';
+      boton.setAttribute('aria-label', `${bingo ? 'Serie' : 'Número'} ${numero}, ${estado}${bingo ? `, ${item.cantidadCartones} cartones` : ''}`);
       boton.disabled = item.estado !== 'LIBRE' || data.estado !== 'ACTIVO';
       boton.onclick = () => reservar(`${ruta}/${bingo ? 'series' : 'numeros'}/${numero}/reservar`, `Reservar ${bingo ? 'serie' : 'número'} ${numero}`, bingo ? numero : null);
       grid.append(boton);

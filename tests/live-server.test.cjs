@@ -13,6 +13,7 @@ const {iniciarRealtime} = require('../dist/src/realtime');
 const {modificarEvento} = require('../dist/src/utils/estadoEnVivo');
 const {eventosEnVivoRouter,eventosEnVivoPublicoRouter} = require('../dist/src/routes/eventosEnVivo.routes');
 const {authRouter} = require('../dist/src/routes/auth.routes');
+const {publicoRouter} = require('../dist/src/routes/publico.routes');
 const {sorteosRouter} = require('../dist/src/routes/sorteos.routes');
 const {firmarToken} = require('../dist/src/middleware/auth');
 const {errorHandler} = require('../dist/src/middleware/errorHandler');
@@ -26,13 +27,38 @@ function message(ws,predicate) {
 test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, async t=>{
  const user=await prisma.usuario.create({data:{nombre:'Sync Test',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});
  const evento=await prisma.eventoEnVivo.create({data:{organizadorId:user.id,titulo:'Test',linkToken:crypto.randomUUID(),modo:'BINGO',rangoMax:90}});
- const app=express();app.use(express.json());app.use('/auth',authRouter);app.use('/sorteos',sorteosRouter);app.use('/eventos-en-vivo',eventosEnVivoRouter);app.use('/vivo',eventosEnVivoPublicoRouter);app.use(errorHandler);
+ const app=express();app.use(express.json());app.use('/s',publicoRouter);app.use('/auth',authRouter);app.use('/sorteos',sorteosRouter);app.use('/eventos-en-vivo',eventosEnVivoRouter);app.use('/vivo',eventosEnVivoPublicoRouter);app.use(errorHandler);
  const server=http.createServer(app);let wss=iniciarRealtime(server);
  server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port;
  const sockets=new Set();
  async function open(options={},token=evento.linkToken){const ws=new WebSocket(base.replace('http','ws')+'/ws?sorteo='+token,options);sockets.add(ws);await once(ws,'open');return ws;}
  async function request(action,body){const res=await fetch(base+'/eventos-en-vivo/'+evento.id+'/'+action,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})},body:body?JSON.stringify(body):undefined});return {res,data:await res.json()};}
  try{
+ await t.test('DNI obligatorio, titular inmutable y datos privados en reservas de rifa y bingo',async()=>{
+   const ids=[];
+   const phone='tel-'+crypto.randomUUID();
+   try {
+     for(const tipo of ['RIFA','BINGO']) {
+       const sorteo=await prisma.sorteo.create({data:{organizadorId:user.id,titulo:'DNI',tipo,estado:'ACTIVO',linkToken:crypto.randomUUID()}});ids.push(sorteo.id);
+       if(tipo==='RIFA')await prisma.numero.createMany({data:[1,2].map(valor=>({sorteoId:sorteo.id,valor}))});
+       else await prisma.serie.createMany({data:[1,2].map(numero=>({sorteoId:sorteo.id,numero,cantidadCartones:1}))});
+       const path=base+'/s/'+sorteo.linkToken+'/'+(tipo==='RIFA'?'numeros':'series');
+       const reserve=(n,body)=>fetch(path+'/'+n+'/reservar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+       for(const dni of [undefined,'abc','123','12.345.678'])assert.equal((await reserve(1,{nombre:'Titular Uno',dni})).status,400);
+       assert.equal((await reserve(1,{nombre:'Titular Uno',dni:'12345678',telefono:phone})).status,200);
+       assert.equal((await reserve(2,{nombre:'Titular Dos',dni:'23456789',telefono:phone})).status,200);
+       const model=tipo==='RIFA'?prisma.numero:prisma.serie;
+       const rows=await model.findMany({where:{sorteoId:sorteo.id},include:{participante:true},orderBy:tipo==='RIFA'?{valor:'asc'}:{numero:'asc'}});
+       assert.equal(rows[0].participante.nombre,'Titular Uno');assert.equal(rows[0].participante.dni,'12345678');assert.equal(rows[1].participante.dni,'23456789');
+       assert.notEqual(rows[0].participanteId,rows[1].participanteId);
+       const pub=await (await fetch(base+'/s/'+sorteo.linkToken)).text();assert(!pub.includes('12345678'));assert(!pub.includes('23456789'));
+       const priv=await fetch(base+'/sorteos/'+sorteo.id+'/'+(tipo==='RIFA'?'numeros':'series'),{headers:{Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})}});
+       assert.equal(priv.status,200);assert((await priv.text()).includes('12345678'));
+     }
+   } finally {
+     await prisma.numero.deleteMany({where:{sorteoId:{in:ids}}});await prisma.serie.deleteMany({where:{sorteoId:{in:ids}}});await prisma.sorteo.deleteMany({where:{id:{in:ids}}});await prisma.participante.deleteMany({where:{telefono:phone}});
+   }
+ });
  await t.test('Upgrade 101 y RESYNC con todos los campos persistidos',async()=>{
    const ws=new WebSocket(base.replace('http','ws')+'/ws?sorteo='+evento.linkToken);sockets.add(ws);
    const opened=once(ws,'open');

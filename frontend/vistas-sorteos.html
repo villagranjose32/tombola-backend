@@ -487,12 +487,86 @@ function modalError(msg) {
   if (el) el.innerHTML = banner('err', msg);
 }
 
+function configurarCasillaOrganizador(boton, item, tipo, contenedor, cambiarEstado) {
+  let ultimoToque = 0;
+  let guardando = false;
+  boton.style.touchAction = 'manipulation';
+  const numero = item.valor ?? item.numero;
+  const mostrar = () => {
+    let ficha = contenedor.querySelector('.titular-seleccionado');
+    if (!ficha) {
+      ficha = document.createElement('div');
+      ficha.className = 'notice info titular-seleccionado';
+      ficha.setAttribute('role', 'status');
+      contenedor.prepend(ficha);
+    }
+    const persona = item.participante;
+    ficha.replaceChildren();
+    const texto = document.createElement('p');
+    texto.textContent = `${tipo} ${numero} · ${persona ? `${persona.nombre || 'Sin nombre'} · DNI: ${persona.dni || 'No registrado'} · ${persona.telefono || 'Sin teléfono'}` : 'Sin titular'} · ${item.estado === 'TOMADO' ? 'Pagado' : item.estado === 'RESERVADO' ? 'Pendiente de pago' : 'Disponible'}`;
+    ficha.appendChild(texto);
+    for (const estado of item.estado === 'RESERVADO' ? ['TOMADO', 'LIBRE'] : item.estado === 'TOMADO' ? ['LIBRE'] : []) {
+      const accion = document.createElement('button');
+      accion.className = 'btn btn-ghost btn-sm';
+      accion.dataset.estado = estado;
+      accion.textContent = estado === 'TOMADO' ? 'Marcar como pagado' : 'Liberar reserva';
+      accion.onclick = () => guardar(estado);
+      ficha.appendChild(accion);
+    }
+  };
+  const guardar = async estado => {
+    if (guardando) return;
+    guardando = true;
+    try { await cambiarEstado(numero, estado); }
+    finally { guardando = false; }
+  };
+  boton.onclick = event => {
+    mostrar();
+    const ahora = performance.now();
+    const dobleToque = event.pointerType === 'touch' && ultimoToque > 0 && ahora - ultimoToque < 450;
+    ultimoToque = event.pointerType === 'touch' ? ahora : 0;
+    if ((event.detail === 2 || dobleToque) && item.estado === 'RESERVADO') {
+      ultimoToque = 0;
+      guardar('TOMADO');
+    }
+  };
+}
+
+function mostrarTitulares(contenedor, tablero, tipo) {
+  contenedor.querySelector('.titulares-dni')?.remove();
+  if (!tableroOrganizadorSorteoId) return;
+  if (!contenedor.querySelector('.titular-seleccionado')) {
+    const ficha = document.createElement('div');
+    ficha.className = 'notice info titular-seleccionado';
+    ficha.style.cssText = 'height:150px;box-sizing:border-box;overflow:auto';
+    ficha.setAttribute('role', 'status');
+    ficha.textContent = 'Tocá una casilla para ver su titular. Doble clic o doble toque para marcar una reserva pendiente como pagada.';
+    contenedor.prepend(ficha);
+  }
+  const detalle = document.createElement('details');
+  detalle.className = 'titulares-dni';
+  const resumen = document.createElement('summary');
+  resumen.textContent = 'Consultar titulares y DNI para entregar premios';
+  detalle.appendChild(resumen);
+  const aviso = document.createElement('p');
+  aviso.textContent = 'Antes de entregar un premio, cotejá el nombre y DNI registrados con el documento del titular.';
+  detalle.appendChild(aviso);
+  for (const item of tablero) {
+    if (!item.participante) continue;
+    const fila = document.createElement('p');
+    fila.textContent = `${tipo} ${item.valor ?? item.numero}: ${item.participante.nombre || 'Sin nombre'} · DNI: ${item.participante.dni || 'No registrado (compra anterior)'}`;
+    detalle.appendChild(fila);
+  }
+  contenedor.appendChild(detalle);
+}
+
 function abrirReservaNumero(token, valor) {
   openModal(`
     <button class="modal-close" onclick="closeModal()">&times;</button>
     <h3>Reservar número ${valor}</h3>
     <div id="modalMsg"></div>
     <div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" placeholder="Juan Pérez" /></div>
+    <div class="field"><label>DNI del titular</label><input id="mDni" inputmode="numeric" maxlength="8" placeholder="Sin puntos" /></div>
     <div class="field"><label>Teléfono (opcional)</label><input id="mContacto" type="tel" autocomplete="tel" placeholder="11 1234-5678" /></div>
     <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Reservar pendiente de pago</button>
   `);
@@ -500,8 +574,10 @@ function abrirReservaNumero(token, valor) {
     const nombre = document.getElementById('mNombre').value.trim();
     const contacto = document.getElementById('mContacto').value.trim();
     if (!nombre) return modalError('Ingresá tu nombre y apellido');
+    const dni = document.getElementById('mDni').value.trim();
+    if (!/^[0-9]{7,8}$/.test(dni)) return modalError('Ingresá un DNI de 7 u 8 dígitos, sin puntos');
     try {
-      const data = await api(`/s/${token}/numeros/${valor}/reservar`, { method: 'POST', body: { nombre, telefono: contacto } });
+      const data = await api(`/s/${token}/numeros/${valor}/reservar`, { method: 'POST', body: { nombre, dni, telefono: contacto } });
       openModal(`
         <button class="modal-close" onclick="closeModal()">&times;</button>
         <h3>Número ${valor} reservado</h3>
@@ -517,14 +593,17 @@ function abrirReservaNumero(token, valor) {
 function abrirReservaSerie(token, numeroSerie) {
   openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Reservar serie ${String(numeroSerie).padStart(3, '0')}</h3>
     <div id="modalMsg"></div><div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" /></div>
+    <div class="field"><label>DNI del titular</label><input id="mDni" inputmode="numeric" maxlength="8" placeholder="Sin puntos" /></div>
     <div class="field"><label>Teléfono (opcional)</label><input id="mTelefono" type="tel" /></div>
     <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Confirmar solicitud</button>`);
   document.getElementById('mBtnReservar').onclick = async () => {
     const nombre = document.getElementById('mNombre').value.trim();
     const telefono = document.getElementById('mTelefono').value.trim();
     if (!nombre) return modalError('Ingresá tu nombre y apellido');
+    const dni = document.getElementById('mDni').value.trim();
+    if (!/^[0-9]{7,8}$/.test(dni)) return modalError('Ingresá un DNI de 7 u 8 dígitos, sin puntos');
     try {
-      const data = await api(`/s/${token}/series/${numeroSerie}/reservar`, { method: 'POST', body: { nombre, telefono } });
+      const data = await api(`/s/${token}/series/${numeroSerie}/reservar`, { method: 'POST', body: { nombre, dni, telefono } });
       const url = new URL(urlDescargaSerie(token, numeroSerie));
       openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Serie pendiente de pago</h3>
         ${banner('ok', data.mensaje)}
@@ -547,14 +626,17 @@ function abrirParticipar(token) {
 function abrirFormularioPendiente(titulo, path, refrescar) {
   openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>${escapeHtml(titulo)}</h3>
     <div id="modalMsg"></div><div class="field"><label>Nombre y apellido</label><input id="mNombre" type="text" /></div>
+    <div class="field"><label>DNI del titular</label><input id="mDni" inputmode="numeric" maxlength="8" placeholder="Sin puntos" /></div>
     <div class="field"><label>Teléfono (opcional)</label><input id="mTelefono" type="tel" /></div>
     <button class="btn btn-primary" style="width:100%" id="mBtnReservar">Confirmar solicitud</button>`);
   document.getElementById('mBtnReservar').onclick = async () => {
     const nombre = document.getElementById('mNombre').value.trim();
     const telefono = document.getElementById('mTelefono').value.trim();
     if (!nombre) return modalError('Ingresá tu nombre y apellido');
+    const dni = document.getElementById('mDni').value.trim();
+    if (!/^[0-9]{7,8}$/.test(dni)) return modalError('Ingresá un DNI de 7 u 8 dígitos, sin puntos');
     try {
-      const data = await api(path, { method: 'POST', body: { nombre, telefono } });
+      const data = await api(path, { method: 'POST', body: { nombre, dni, telefono } });
       openModal(`<button class="modal-close" onclick="closeModal()">&times;</button><h3>Solicitud recibida</h3>
         ${banner('ok', data.mensaje)}<button class="btn btn-ghost" style="width:100%;margin-top:14px" onclick="closeModal()">Cerrar</button>`);
       refrescar();
@@ -843,13 +925,14 @@ async function cargarTablero() {
     const cont = document.getElementById('tableroContenido');
 
     if (data.tipo === 'RIFA') {
-      cont.innerHTML = `${tableroOrganizadorSorteoId ? `<div class="notice info">Control de pagos: tocá un número <strong>amarillo</strong> para confirmar el pago y uno <strong>tomado</strong> para liberarlo. Pasá el cursor para ver los datos del cliente.</div>` : ''}
+      cont.innerHTML = `${tableroOrganizadorSorteoId ? `<div class="notice info">Tocá un número para ver el titular. Hacé doble clic o doble toque en una reserva pendiente para marcarla como pagada.</div>` : ''}
         <div class="tablero" id="tablero-grid"></div>
         <div class="legend">
           <div class="legend-item"><span class="legend-dot" style="background:var(--teal);"></span> Libre</div>
           <div class="legend-item"><span class="legend-dot" style="background:var(--marquee);"></span> Pendiente de pago</div>
           <div class="legend-item"><span class="legend-dot" style="background:#3a2f2a;"></span> Tomado</div>
         </div>`;
+      mostrarTitulares(cont, data.tablero, 'Número');
       const grid = document.getElementById('tablero-grid');
       data.tablero.forEach((n) => {
         const b = document.createElement('button');
@@ -858,9 +941,8 @@ async function cargarTablero() {
         b.dataset.valor = n.valor;
         if (tableroOrganizadorSorteoId) {
           const persona = n.participante;
-          b.title = persona ? `${persona.nombre || 'Sin nombre'} · ${persona.contacto}` : 'Libre';
-          if (n.estado === 'RESERVADO') b.onclick = () => cambiarEstadoNumero(n.valor, 'TOMADO');
-          if (n.estado === 'TOMADO') b.onclick = () => cambiarEstadoNumero(n.valor, 'LIBRE');
+          b.title = persona ? `${persona.nombre || 'Sin nombre'} · ${persona.telefono || 'Sin teléfono'} · DNI: ${persona.dni || 'No registrado'}` : 'Libre';
+          configurarCasillaOrganizador(b, n, 'Número', cont, cambiarEstadoNumero);
         } else if (n.estado === 'LIBRE') {
           b.onclick = () => abrirReservaNumero(token, n.valor);
         }
@@ -933,15 +1015,16 @@ async function cargarSeries() {
     document.getElementById('seriesEstadoBox').textContent = `Estado: ${data.estado}`;
     const grid = document.getElementById('series-grid');
     grid.innerHTML = '';
+    document.querySelector('#seriesShell .titular-seleccionado')?.remove();
+    mostrarTitulares(document.getElementById('seriesShell'), data.tablero, 'Serie');
     data.tablero.forEach((s) => {
       const el = document.createElement('button');
       el.className = 'serie-chip ' + s.estado.toLowerCase();
       el.dataset.numero = s.numero;
       el.innerHTML = `<span class="num">${String(s.numero).padStart(3, '0')}</span><span class="sub">${s.cantidadCartones} cartones</span>`;
       if (tableroOrganizadorSorteoId) {
-        el.title = s.participante ? `${s.participante.nombre} · ${s.participante.telefono || 'Sin teléfono'}` : 'Libre';
-        if (s.estado === 'RESERVADO') el.onclick = () => cambiarEstadoSerie(s.numero, 'TOMADO');
-        if (s.estado === 'TOMADO') el.onclick = () => cambiarEstadoSerie(s.numero, 'LIBRE');
+        el.title = s.participante ? `${s.participante.nombre} · ${s.participante.telefono || 'Sin teléfono'} · DNI: ${s.participante.dni || 'No registrado'}` : 'Libre';
+        configurarCasillaOrganizador(el, s, 'Serie', document.getElementById('seriesShell'), cambiarEstadoSerie);
       } else if (s.estado === 'LIBRE') el.onclick = () => abrirReservaSerie(token, s.numero);
       if (tableroOrganizadorSorteoId) {
         const grupo = document.createElement('div');
@@ -974,7 +1057,7 @@ async function cambiarEstadoSerie(numero, estado) {
   if (!confirm(estado === 'TOMADO' ? '¿Confirmar el pago de esta serie?' : '¿Liberar esta serie?')) return;
   try {
     await api(`/sorteos/${tableroOrganizadorSorteoId}/series/${numero}`, { method: 'PATCH', token: orgToken, body: { estado } });
-    cargarSeries();
+    await cargarSeries();
   } catch (e) { alert(e.message); }
 }
 

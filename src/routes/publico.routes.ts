@@ -68,17 +68,18 @@ publicoRouter.get(
 
 const contactoSchema = z.object({
   nombre: z.string().trim().min(3).max(120),
+  dni: z.string().trim().regex(/^[0-9]{7,8}$/, "Ingresá un DNI de 7 u 8 dígitos, sin puntos"),
   telefono: z.string().trim().min(5).max(40).optional().or(z.literal("")),
 });
 
-async function obtenerOCrearParticipante(nombre: string, telefono?: string) {
-  if (!telefono) return prisma.participante.create({
-    data: { nombre, contacto: `sin-telefono:${crypto.randomUUID()}` },
-  });
+async function obtenerOCrearParticipante(nombre: string, dni: string, telefono?: string) {
+  // La identidad de una reserva anterior nunca se modifica por otra compra.
+  // El teléfono puede ser compartido por distintas personas.
+  const contacto = `titular:${crypto.createHash("sha256").update(JSON.stringify([dni, nombre, telefono || ""])).digest("hex")}`;
   return prisma.participante.upsert({
-    where: { contacto: telefono },
-    update: { nombre, telefono },
-    create: { contacto: telefono, nombre, telefono },
+    where: { contacto },
+    update: {},
+    create: { contacto, nombre, dni, telefono },
   });
 }
 
@@ -89,10 +90,10 @@ publicoRouter.post(
     const sorteo = await obtenerSorteoPorToken(req.params.token);
     if (sorteo.tipo !== "RIFA") throw new HttpError(400, "Este sorteo no es una rifa");
     if (sorteo.estado !== "ACTIVO") throw new HttpError(409, "El sorteo no está activo");
-    const { nombre, telefono } = contactoSchema.parse(req.body);
+    const { nombre, dni, telefono } = contactoSchema.parse(req.body);
     const valor = Number(req.params.valor);
 
-    const participante = await obtenerOCrearParticipante(nombre, telefono || undefined);
+    const participante = await obtenerOCrearParticipante(nombre, dni, telefono || undefined);
     const ahora = new Date();
 
     // UPDATE atómico: solo reserva si está libre, o si estaba reservado pero ya venció el TTL.
@@ -163,10 +164,10 @@ publicoRouter.post(
     const sorteo = await obtenerSorteoPorToken(req.params.token);
     if (sorteo.tipo !== "BINGO") throw new HttpError(400, "Este sorteo no es un bingo");
     if (sorteo.estado !== "ACTIVO") throw new HttpError(409, "El sorteo no está activo");
-    const { nombre, telefono } = contactoSchema.parse(req.body);
+    const { nombre, dni, telefono } = contactoSchema.parse(req.body);
     const numeroSerie = Number(req.params.numero);
 
-    const participante = await obtenerOCrearParticipante(nombre, telefono || undefined);
+    const participante = await obtenerOCrearParticipante(nombre, dni, telefono || undefined);
     const ahora = new Date();
 
     const actualizados = await prisma.$executeRaw`
@@ -233,9 +234,9 @@ publicoRouter.post(
     const sorteo = await obtenerSorteoPorToken(req.params.token);
     if (sorteo.tipo !== "SORTEO_SIMPLE") throw new HttpError(400, "Este sorteo no admite inscripción directa");
     if (sorteo.estado !== "ACTIVO") throw new HttpError(409, "El sorteo no está activo");
-    const { nombre, telefono } = contactoSchema.parse(req.body);
+    const { nombre, dni, telefono } = contactoSchema.parse(req.body);
 
-    const participante = await obtenerOCrearParticipante(nombre, telefono || undefined);
+    const participante = await obtenerOCrearParticipante(nombre, dni, telefono || undefined);
 
     await prisma.inscripcion.upsert({
       where: { sorteoId_participanteId: { sorteoId: sorteo.id, participanteId: participante.id } },

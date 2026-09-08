@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="/live-sync.js"></script>
+<script src="/bingo-voz.js"></script>
 <title>Bingo Virtual — Sorteo en vivo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -244,20 +245,6 @@
 
 <script>
 (function(){
-  const UNIDADES=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte'];
-  const CENTENAS={100:'cien',200:'doscientos',300:'trescientos',400:'cuatrocientos',500:'quinientos',600:'seiscientos',700:'setecientos',800:'ochocientos',900:'novecientos'};
-  function numeroATexto(n){
-    if(n<=20) return UNIDADES[n];
-    if(n<100){
-      const decenas={30:'treinta',40:'cuarenta',50:'cincuenta',60:'sesenta',70:'setenta',80:'ochenta',90:'noventa'};
-      if(n<30) return 'veinti'+UNIDADES[n-20];
-      const d=Math.floor(n/10)*10, u=n%10;
-      return decenas[d] + (u? ' y '+UNIDADES[u] : '');
-    }
-    if(n===100) return 'cien';
-    if(n<1000){ const c=Math.floor(n/100)*100, resto=n%100; return CENTENAS[c] + (resto ? ' '+numeroATexto(resto) : ''); }
-    return String(n);
-  }
   function cifras(m){ return String(m).length; }
   function pad(n, m){ return String(n).padStart(cifras(m), '0'); }
 
@@ -752,24 +739,19 @@
   if ('speechSynthesis' in window) { loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
   function pickVoice(gender){
     const esVoices = voicesCache.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
-    const pool = esVoices.length ? esVoices : voicesCache;
+    const pool = esVoices;
     const femaleHints=['female','mujer','mónica','monica','paulina','lucia','lucía','helena','laura','elvira','conchita','isabel','sabina'];
     const maleHints=['male','hombre','jorge','diego','carlos','enrique','pablo','juan','miguel'];
     const hints = gender==='femenina' ? femaleHints : maleHints;
     return pool.find(v => hints.some(h => v.name.toLowerCase().includes(h))) || pool[0] || null;
   }
+  document.getElementById('voiceGender').addEventListener('change', () => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  });
   function cantar(n){
     const gender = document.getElementById('voiceGender').value;
     if (gender==='ninguna' || !('speechSynthesis' in window)) return;
-    const utter = new SpeechSynthesisUtterance('El número ' + numeroATexto(n));
-    const v = pickVoice(gender);
-    if (v) utter.voice = v;
-    utter.pitch = gender==='femenina' ? 1.15 : 0.85;
-    utter.rate = 0.95;
-    utter.volume = voiceVolume;
-    utter.lang = (v && v.lang) || 'es-ES';
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
+    BingoVoz.cantar(n, {gender, voice: pickVoice(gender), volume: voiceVolume});
   }
 
   async function inicializarDesdeEnlace() {

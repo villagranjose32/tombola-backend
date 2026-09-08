@@ -14,6 +14,7 @@
     "migrate": "prisma migrate dev",
     "seed": "prisma db seed",
     "studio": "prisma studio",
+    "test:voz": "node tests/bingo-voz.test.cjs",
     "test:live": "node tests/live-sync.test.cjs",
     "test:live:server": "npm run build && node tests/live-server.test.cjs",
     "test:live:browser": "node tests/live-browser.cjs",

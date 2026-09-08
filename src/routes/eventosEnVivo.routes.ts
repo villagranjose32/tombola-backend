@@ -189,7 +189,7 @@ eventosEnVivoPublicoRouter.post("/:token/cantar", asyncHandler(async (req, res) 
 eventosEnVivoRouter.get("/:id/series/:numero", asyncHandler(async (req, res) => {
   const evento = await propio(req.params.id, req.usuario!.sub);
   if (!evento.sorteoBingoId) throw new HttpError(400, "Este evento no está vinculado a un bingo");
-  const serie = await prisma.serie.findUnique({ where: { sorteoId_numero: { sorteoId: evento.sorteoBingoId, numero: Number(req.params.numero) } }, include: { cartones: { orderBy: { posicion: "asc" } }, participante: { select: { nombre: true, telefono: true } } } });
+  const serie = await prisma.serie.findUnique({ where: { sorteoId_numero: { sorteoId: evento.sorteoBingoId, numero: Number(req.params.numero) } }, include: { cartones: { orderBy: { posicion: "asc" } }, participante: { select: { nombre: true, telefono: true, dni: true } } } });
   if (!serie) throw new HttpError(404, "Serie no encontrada");
   const estado = await prisma.estadoCartonesEnVivo.findUnique({ where: { eventoId_serieId: { eventoId: evento.id, serieId: serie.id } } });
   res.json({ numeroSerie: serie.numero, participante: serie.participante, cartones: serie.cartones, marcas: estado?.marcas || {} });

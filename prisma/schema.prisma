@@ -107,6 +107,7 @@ model Sorteo {
 }
 
 model Participante {
+  dni        String?
   id         String   @id @default(uuid())
   nombre     String?
   telefono   String?

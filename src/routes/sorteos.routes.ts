@@ -96,7 +96,7 @@ sorteosRouter.get(
       select: {
         valor: true,
         estado: true,
-        participante: { select: { nombre: true, contacto: true } },
+        participante: { select: { nombre: true, contacto: true, telefono: true, dni: true } },
       },
     });
     res.json({
@@ -142,7 +142,7 @@ sorteosRouter.get("/:id/series", asyncHandler(async (req, res) => {
   const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
   if (sorteo.tipo !== "BINGO") throw new HttpError(400, "Este sorteo no es un bingo");
   const tablero = await prisma.serie.findMany({ where: { sorteoId: sorteo.id }, orderBy: { numero: "asc" },
-    select: { numero: true, cantidadCartones: true, estado: true, participante: { select: { nombre: true, telefono: true } } } });
+    select: { numero: true, cantidadCartones: true, estado: true, participante: { select: { nombre: true, telefono: true, dni: true } } } });
   res.json({ tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, tablero });
 }));
 
@@ -165,7 +165,7 @@ sorteosRouter.get("/:id/inscripciones", asyncHandler(async (req, res) => {
   const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
   if (sorteo.tipo !== "SORTEO_SIMPLE") throw new HttpError(400, "Este no es un sorteo simple");
   const inscripciones = await prisma.inscripcion.findMany({ where: { sorteoId: sorteo.id }, orderBy: { creadoEn: "asc" },
-    include: { participante: { select: { nombre: true, telefono: true } } } });
+    include: { participante: { select: { nombre: true, telefono: true, dni: true } } } });
   res.json({ tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado,
     inscripciones: inscripciones.map(i => ({ id: i.id, estado: i.verificado ? "TOMADO" : "RESERVADO", participante: i.participante })) });
 }));

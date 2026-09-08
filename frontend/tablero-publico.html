@@ -6,6 +6,7 @@
 <p id="mensaje" role="status">Cargando...</p><div id="comprobante"></div><section id="contenido"></section>
 <dialog id="reserva"><form id="formReserva"><h2 id="reservaTitulo"></h2>
 <label>Nombre y apellido<input name="nombre" required minlength="3" maxlength="120" autocomplete="name"></label>
+<label>DNI<input name="dni" required inputmode="numeric" pattern="[0-9]{7,8}" minlength="7" maxlength="8" placeholder="Sin puntos" aria-describedby="dniAyuda"></label><p id="dniAyuda">Usá los datos del titular. Al cobrar el premio deberá presentar su DNI.</p>
 <label>Teléfono (opcional)<input name="telefono" type="tel" minlength="5" maxlength="40" autocomplete="tel"></label>
 <p id="reservaMensaje" role="status"></p><div class="acciones"><button type="submit">Confirmar reserva</button><button type="button" id="cancelar">Cerrar</button></div>
 </form></dialog></main></body></html>
