@@ -8,9 +8,9 @@ async function main() {
   const email = process.env.ADMIN_EMAIL || "admin@tombola.local";
   const password = process.env.ADMIN_PASSWORD || "admin1234";
 
-  const existente = await prisma.usuario.findUnique({ where: { email } });
+  const existente = await prisma.usuario.findFirst({ where: { rol: "ADMIN" } });
   if (existente) {
-    console.log(`El admin ${email} ya existe, no se creó de nuevo.`);
+    console.log(`El admin ${existente.email} ya existe, no se creó de nuevo.`);
     return;
   }
 

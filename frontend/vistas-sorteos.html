@@ -183,14 +183,6 @@
       <h1 class="view-title">Organizadores</h1>
       <div class="view-desc">Revisá las solicitudes y administrá las cuentas de los organizadores.</div>
     </div>
-    <div class="panel" id="adminLoginBox">
-      <div class="form-grid">
-        <div class="field"><label>Email admin</label><input id="adminEmail" type="email" placeholder="admin@tu-dominio.com"></div>
-        <div class="field"><label>Contraseña</label><input id="adminPass" type="password" autocomplete="current-password"></div>
-      </div>
-      <div id="adminLoginMsg"></div>
-      <button class="btn btn-primary" id="btnAdminLogin" style="margin-top:12px;">Ingresar como admin</button>
-    </div>
     <div class="panel" id="adminPanel" style="display:none;">
       <div class="row" style="margin-bottom:12px;">
         <div class="muted mono" id="adminQuien" style="font-size:12px;"></div>
@@ -212,30 +204,6 @@
       <div class="eyebrow">Vista · Organizador</div>
       <h1 class="view-title">Tus sorteos</h1>
       <div class="view-desc">Administrá tus sorteos, confirmá pagos y compartí los enlaces para participar.</div>
-    </div>
-    <div class="panel" id="orgLoginBox">
-      <div class="form-grid">
-        <div class="field"><label>Email</label><input id="orgEmail" type="email" placeholder="club@ejemplo.com"></div>
-        <div class="field"><label>Contraseña</label><input id="orgPass" type="password"></div>
-      </div>
-      <div id="orgLoginMsg"></div>
-      <div class="row" style="margin-top:12px; justify-content:flex-start; gap:10px;">
-        <button class="btn btn-primary" id="btnOrgLogin">Ingresar</button>
-        <button class="btn btn-ghost" id="btnMostrarRegistro">Crear cuenta de organizador</button>
-      </div>
-    </div>
-    <div class="panel" id="orgRegistroBox" style="display:none;">
-      <div class="form-grid">
-        <div class="field full"><label>Nombre / organización</label><input id="regNombre" type="text"></div>
-        <div class="field"><label>Email</label><input id="regEmail" type="email"></div>
-        <div class="field"><label for="regPass">Contraseña (mín. 8)</label><div class="password-wrap"><input id="regPass" type="password" autocomplete="new-password" minlength="8"><button type="button" class="password-eye" data-password-target="regPass" aria-label="Mostrar contraseña" aria-pressed="false" aria-controls="regPass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></div></div>
-        <div class="field"><label for="regPassRepeat">Repetir contraseña</label><div class="password-wrap"><input id="regPassRepeat" type="password" autocomplete="new-password" minlength="8"><button type="button" class="password-eye" data-password-target="regPassRepeat" aria-label="Mostrar contraseña" aria-pressed="false" aria-controls="regPassRepeat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></div></div>
-      </div>
-      <div id="orgRegistroMsg"></div>
-      <div class="row" style="margin-top:12px; justify-content:flex-start; gap:10px;">
-        <button class="btn btn-primary" id="btnRegistrar">Registrarme</button>
-        <button class="btn btn-ghost" id="btnVolverLogin">Volver a ingresar</button>
-      </div>
     </div>
     <div id="orgPanel" style="display:none;">
       <div class="row" style="margin-bottom:12px;">
@@ -645,27 +613,11 @@ function abrirFormularioPendiente(titulo, path, refrescar) {
 }
 
 /* ================== 01 ADMIN ================== */
-document.getElementById('btnAdminLogin').addEventListener('click', async () => {
-  const email = document.getElementById('adminEmail').value.trim();
-  const password = document.getElementById('adminPass').value;
-  const msg = document.getElementById('adminLoginMsg');
-  msg.innerHTML = '';
-  try {
-    const data = await api('/auth/login', { method: 'POST', body: { email, password } });
-    if (data.usuario.rol !== 'ADMIN') throw new Error('Esa cuenta no es de admin');
-    adminToken = data.token; adminInfo = data.usuario;
-    document.getElementById('adminLoginBox').style.display = 'none';
-    document.getElementById('adminPanel').style.display = 'block';
-    document.getElementById('adminQuien').textContent = `${adminInfo.nombre} · ${adminInfo.email}`;
-    cargarAdmin();
-  } catch (e) { msg.innerHTML = banner('err', e.message); }
-  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
-});
-document.getElementById('btnAdminLogout').addEventListener('click', () => {
-  adminToken = null; adminInfo = null;
-  document.getElementById('adminLoginBox').style.display = 'block';
-  document.getElementById('adminPanel').style.display = 'none';
-});
+function cerrarSesion() {
+  sessionStorage.removeItem('tombolaOrgToken');
+  location.replace('/');
+}
+document.getElementById('btnAdminLogout').addEventListener('click', cerrarSesion);
 document.getElementById('btnAdminRefrescar').addEventListener('click', cargarAdmin);
 
 async function cargarAdmin() {
@@ -698,71 +650,13 @@ async function decidirOrganizador(id, accion) {
 }
 
 /* ================== 02 PANEL ORGANIZADOR ================== */
-document.getElementById('btnMostrarRegistro').addEventListener('click', () => {
-  document.getElementById('orgLoginBox').style.display = 'none';
-  document.getElementById('orgRegistroBox').style.display = 'block';
-});
-document.getElementById('btnVolverLogin').addEventListener('click', () => {
-  document.getElementById('orgRegistroBox').style.display = 'none';
-  document.getElementById('orgLoginBox').style.display = 'block';
-});
-document.querySelectorAll('[data-password-target]').forEach(button => button.addEventListener('click', () => {
-  const input = document.getElementById(button.dataset.passwordTarget);
-  const visible = input.type === 'password';
-  input.type = visible ? 'text' : 'password';
-  button.setAttribute('aria-pressed', String(visible));
-  button.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
-}));
-document.getElementById('btnRegistrar').addEventListener('click', async () => {
-  const nombre = document.getElementById('regNombre').value.trim();
-  const email = document.getElementById('regEmail').value.trim();
-  const password = document.getElementById('regPass').value;
-  const msg = document.getElementById('orgRegistroMsg');
-  if (password !== document.getElementById('regPassRepeat').value) {
-    msg.innerHTML = banner('err', 'Las contraseñas no coinciden. Volvé a escribirlas.');
-    document.getElementById('regPassRepeat').focus();
-    return;
-  }
-  try {
-    const data = await api('/auth/registro', { method: 'POST', body: { nombre, email, password } });
-    msg.innerHTML = banner('ok', data.mensaje);
-    document.getElementById('orgEmail').value = email;
-    document.getElementById('regPass').value = '';
-    document.getElementById('regPassRepeat').value = '';
-  } catch (e) { msg.innerHTML = banner('err', e.message); }
-  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
-});
-document.getElementById('btnOrgLogin').addEventListener('click', async () => {
-  const email = document.getElementById('orgEmail').value.trim();
-  const password = document.getElementById('orgPass').value;
-  const msg = document.getElementById('orgLoginMsg');
-  msg.innerHTML = '';
-  try {
-    const data = await api('/auth/login', { method: 'POST', body: { email, password } });
-    if (data.usuario.rol !== 'ORGANIZADOR') throw new Error('Esa cuenta no es de organizador');
-    orgToken = data.token; orgInfo = data.usuario;
-    sessionStorage.setItem('tombolaOrgToken', orgToken);
-    document.getElementById('orgLoginBox').style.display = 'none';
-    document.getElementById('orgPanel').style.display = 'block';
-    document.getElementById('orgQuien').textContent = `${orgInfo.nombre} · ${orgInfo.email} · ${orgInfo.estado}`;
-    refrescarNoticeCrear();
-    renderPanelOrganizador();
-  } catch (e) { msg.innerHTML = banner('err', e.message); }
-  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
-});
-document.getElementById('btnOrgLogout').addEventListener('click', () => {
-  orgToken = null; orgInfo = null;
-  sessionStorage.removeItem('tombolaOrgToken');
-  refrescarNoticeCrear();
-  document.getElementById('orgPanel').style.display = 'none';
-  document.getElementById('orgLoginBox').style.display = 'block';
-});
+document.getElementById('btnOrgLogout').addEventListener('click', cerrarSesion);
 
 async function renderPanelOrganizador() {
   const notice = document.getElementById('orgPendienteNotice');
   const grid = document.getElementById('misSorteosGrid');
   if (orgInfo.estado !== 'APROBADO') {
-    notice.innerHTML = `<div class="notice info">Tu cuenta todavía está <strong>${orgInfo.estado.toLowerCase()}</strong>. Un admin tiene que aprobarla (pestaña 01) antes de que puedas crear sorteos.</div>`;
+    notice.innerHTML = `<div class="notice info">Tu cuenta todavía está <strong>${orgInfo.estado.toLowerCase()}</strong>. Un admin tiene que aprobarla antes de que puedas crear sorteos.</div>`;
     grid.innerHTML = '';
     return;
   }
@@ -1159,21 +1053,35 @@ function conectarRealtime(token, cual, onEvento) {
 
 refrescarNoticeCrear();
 
-async function restaurarSesionOrganizador() {
+async function restaurarSesion() {
   const token = sessionStorage.getItem('tombolaOrgToken');
-  if (!token) return;
+  if (!token) { location.replace('/'); return; }
   try {
-    const response = await fetch(API + '/auth/me', {headers: {Authorization: 'Bearer ' + token}});
-    if (!response.ok) { if (response.status === 401) sessionStorage.removeItem('tombolaOrgToken'); return; }
-    const usuario = await response.json();
-    if (usuario.rol !== 'ORGANIZADOR') return;
-    orgToken = token; orgInfo = usuario;
-    document.getElementById('orgLoginBox').style.display = 'none';
-    document.getElementById('orgPanel').style.display = 'block';
-    document.getElementById('orgQuien').textContent = `${usuario.nombre} · ${usuario.email} · ${usuario.estado}`;
-    refrescarNoticeCrear();
-    await renderPanelOrganizador();
-  } catch (_) { document.getElementById('orgLoginMsg').innerHTML = banner('err', 'No se pudo recuperar la sesión. Intentá ingresar nuevamente.'); }
+    const usuario = await api('/auth/me', {token});
+    const admin = usuario.rol === 'ADMIN';
+    if (!admin && usuario.rol !== 'ORGANIZADOR') { cerrarSesion(); return; }
+    document.querySelectorAll('#tabs button').forEach(b => {
+      b.style.display = (admin ? b.dataset.view === 'admin' : b.dataset.view !== 'admin') ? '' : 'none';
+    });
+    if (admin) {
+      adminToken = token; adminInfo = usuario;
+      document.getElementById('adminPanel').style.display = 'block';
+      document.getElementById('adminQuien').textContent = `${usuario.nombre} · ${usuario.email}`;
+      irATab('admin');
+      history.replaceState(null, '', '/admin.html');
+      await cargarAdmin();
+    } else {
+      orgToken = token; orgInfo = usuario;
+      document.getElementById('orgPanel').style.display = 'block';
+      document.getElementById('orgQuien').textContent = `${usuario.nombre} · ${usuario.email} · ${usuario.estado}`;
+      const vista = paramsPublicos.get('vista');
+      irATab(['dash','crear','tablero','series','carton','resultado','vivo'].includes(vista) ? vista : 'dash');
+      history.replaceState(null, '', '/organizador.html' + (vista ? '?vista=' + encodeURIComponent(vista) : ''));
+      refrescarNoticeCrear();
+      await renderPanelOrganizador();
+    }
+    document.body.style.visibility = '';
+  } catch (_) { location.replace('/'); }
 }
 
 /* Un enlace compartido abre directamente el tablero correspondiente. */
@@ -1182,21 +1090,9 @@ const portalPrivado = paramsPublicos.get('portal');
 const tokenPublico = paramsPublicos.get('sorteo');
 const tipoPublico = paramsPublicos.get('tipo');
 const seriePublica = paramsPublicos.get('serie');
-if (portalPrivado === 'admin') {
-  document.querySelectorAll('#tabs button').forEach(b => { b.style.display = b.dataset.view === 'admin' ? '' : 'none'; });
-  irATab('admin');
-  history.replaceState(null, '', '/admin.html');
-} else if (portalPrivado === 'organizador') {
-  const adminTab = document.querySelector('#tabs button[data-view="admin"]');
-  if (adminTab) adminTab.style.display = 'none';
-  const vista = paramsPublicos.get('vista');
-  irATab(['dash','crear','tablero','series','carton','resultado','vivo'].includes(vista) ? vista : 'dash');
-  history.replaceState(null, '', '/organizador.html' + (vista ? '?vista=' + encodeURIComponent(vista) : ''));
-  restaurarSesionOrganizador();
-} else if (!tokenPublico) {
-  const adminTab = document.querySelector('#tabs button[data-view="admin"]');
-  if (adminTab) adminTab.style.display = 'none';
-  irATab('dash');
+if (!tokenPublico) {
+  document.body.style.visibility = 'hidden';
+  restaurarSesion();
 }
 if (tokenPublico) {
   tableroOrganizadorSorteoId = null;

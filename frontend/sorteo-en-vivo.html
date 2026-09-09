@@ -130,11 +130,7 @@
   <div id="sidebarCartones">
     <!-- ORGANIZADOR: login -->
     <div class="panel" id="orgLoginBox">
-      <h2>Ingresar como organizador</h2>
-      <div class="field"><label>Email</label><input id="orgEmail" type="email" placeholder="club@ejemplo.com"></div>
-      <div class="field"><label>Contraseña</label><input id="orgPass" type="password"></div>
-      <div id="orgLoginMsg"></div>
-      <button class="btn btn-primary btn-full" id="btnOrgLogin">Ingresar</button>
+      <a class="btn btn-primary btn-full" href="/">Iniciar sesión</a>
     </div>
 
     <!-- ORGANIZADOR: elegir sorteo -->
@@ -275,22 +271,6 @@
   }
   function banner(tipo, msg){ return `<div class="banner ${tipo}">${msg}</div>`; }
   function escapeHtml(valor){ return String(valor??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-  /* ---------- login organizador ---------- */
-  document.getElementById('btnOrgLogin').addEventListener('click', async () => {
-    const email = document.getElementById('orgEmail').value.trim();
-    const password = document.getElementById('orgPass').value;
-    const msg = document.getElementById('orgLoginMsg');
-    try {
-      const data = await api('/auth/login', { method:'POST', body:{ email, password } });
-      if (data.usuario.rol !== 'ORGANIZADOR') throw new Error('Esa cuenta no es de organizador');
-      orgToken = data.token; orgInfo = data.usuario;
-      sessionStorage.setItem('tombolaOrgToken', orgToken);
-      document.getElementById('orgLoginBox').style.display = 'none';
-      document.getElementById('orgSelectBox').style.display = 'block';
-      cargarMisBingos();
-    } catch(e){ msg.innerHTML = banner('err', e.message); }
-  });
 
   async function cargarMisBingos(){
     const sel = document.getElementById('selectSorteo');
@@ -775,7 +755,11 @@
 
     document.getElementById('menuOrganizador').hidden = false;
     const tokenGuardado = sessionStorage.getItem('tombolaOrgToken');
-    if (!tokenGuardado) return;
+    if (!tokenGuardado) { location.replace('/'); return; }
+    try {
+      orgInfo = await api('/auth/me', {token: tokenGuardado});
+      if (orgInfo.rol !== 'ORGANIZADOR') { location.replace('/'); return; }
+    } catch (_) { location.replace('/'); return; }
     orgToken = tokenGuardado;
     document.getElementById('orgLoginBox').style.display = 'none';
     document.getElementById('orgSelectBox').style.display = 'block';
