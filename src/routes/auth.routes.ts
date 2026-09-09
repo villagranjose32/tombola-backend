@@ -8,7 +8,9 @@ import { asyncHandler, HttpError } from "../middleware/errorHandler";
 export const authRouter = Router();
 
 const registroSchema = z.object({
-  nombre: z.string().min(2),
+  nombre: z.string().trim().min(3).max(120).regex(/^\S+\s+.+$/, "Ingresá tu nombre completo y apellido"),
+  dni: z.string().trim().regex(/^[0-9]{7,8}$/, "Ingresá un DNI de 7 u 8 dígitos, sin puntos"),
+  telefono: z.string().trim().min(7).max(30).regex(/^\+?[0-9 ()-]+$/, "Ingresá un teléfono válido").refine(v => v.replace(/\D/g, "").length >= 7, "El teléfono necesita al menos 7 dígitos"),
   email: z.string().email(),
   password: z.string().min(8, "La contraseña necesita al menos 8 caracteres"),
 });
@@ -29,6 +31,8 @@ authRouter.post(
     const usuario = await prisma.usuario.create({
       data: {
         nombre: datos.nombre,
+        dni: datos.dni,
+        telefono: datos.telefono,
         email: datos.email,
         passwordHash,
         rol: "ORGANIZADOR",

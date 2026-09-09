@@ -25,7 +25,7 @@ function message(ws,predicate) {
  });
 }
 test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, async t=>{
- const user=await prisma.usuario.create({data:{nombre:'Sync Test',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});
+ const user=await prisma.usuario.create({data:{nombre:'Sync Test',dni:'12345678',telefono:'+54 11 12345678',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});
  const evento=await prisma.eventoEnVivo.create({data:{organizadorId:user.id,titulo:'Test',linkToken:crypto.randomUUID(),modo:'BINGO',rangoMax:90}});
  const app=express();app.use(express.json());app.use('/s',publicoRouter);app.use('/auth',authRouter);app.use('/sorteos',sorteosRouter);app.use('/eventos-en-vivo',eventosEnVivoRouter);app.use('/vivo',eventosEnVivoPublicoRouter);app.use(errorHandler);
  const server=http.createServer(app);let wss=iniciarRealtime(server);
@@ -57,6 +57,53 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      }
    } finally {
      await prisma.numero.deleteMany({where:{sorteoId:{in:ids}}});await prisma.serie.deleteMany({where:{sorteoId:{in:ids}}});await prisma.sorteo.deleteMany({where:{id:{in:ids}}});await prisma.participante.deleteMany({where:{telefono:phone}});
+   }
+ });
+ await t.test('Registro exige nombre completo, DNI y teléfono y solo crea organizadores',async()=>{
+   const email=crypto.randomUUID()+'@example.test';
+   const body={nombre:'Ana Pérez',dni:'12345678',telefono:'+54 11 12345678',email,password:'Password123',rol:'ADMIN'};
+   const registrar=datos=>fetch(base+'/auth/registro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(datos)});
+   try {
+     for(const faltante of ['dni','telefono'])assert.equal((await registrar({...body,[faltante]:undefined})).status,400);
+     assert.equal((await registrar({...body,nombre:'Ana'})).status,400);
+     assert.equal((await registrar({...body,dni:'abc'})).status,400);
+     assert.equal((await registrar({...body,telefono:'abcdefg'})).status,400);
+     assert.equal((await registrar(body)).status,201);
+     const guardado=await prisma.usuario.findUnique({where:{email}});
+     assert.equal(guardado.rol,'ORGANIZADOR');assert.equal(guardado.dni,body.dni);assert.equal(guardado.telefono,body.telefono);
+   }finally{await prisma.usuario.deleteMany({where:{email}});}
+ });
+ await t.test('Eliminar exige titularidad y borra todos los datos del sorteo, conservando participantes',async()=>{
+   const titular=await prisma.participante.create({data:{contacto:crypto.randomUUID(),nombre:'Titular'}});
+   const otro=await prisma.usuario.create({data:{nombre:'Otro',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});
+   const ids=[];
+   const eliminar=(id,sub)=>fetch(base+'/sorteos/'+id,{method:'DELETE',headers:sub?{Authorization:'Bearer '+firmarToken({sub,rol:'ORGANIZADOR'})}:{}});
+   try {
+     for(const tipo of ['BINGO','RIFA','SORTEO_SIMPLE']) {
+       const sorteo=await prisma.sorteo.create({data:{organizadorId:user.id,titulo:'Eliminar',tipo,estado:'ACTIVO',linkToken:crypto.randomUUID()}});ids.push(sorteo.id);
+       if(tipo==='BINGO') {
+         const serie=await prisma.serie.create({data:{sorteoId:sorteo.id,numero:1,cantidadCartones:1,estado:'TOMADO',participanteId:titular.id,cartones:{create:{posicion:1,contenido:[[1,2,3]]}}},include:{cartones:true}});
+         const sala=await prisma.eventoEnVivo.create({data:{organizadorId:user.id,sorteoBingoId:sorteo.id,titulo:'Eliminar',linkToken:crypto.randomUUID()}});
+         await prisma.estadoCartonesEnVivo.create({data:{eventoId:sala.id,serieId:serie.id,marcas:{}}});
+         await prisma.cantoBingo.create({data:{eventoId:sala.id,sorteoId:sorteo.id,ronda:0,tipo:'LINEA',cartonId:serie.cartones[0].id,numeroSerie:1,numeroCarton:1,contenido:[[1,2,3]],bolillas:[1,2,3]}});
+       } else if(tipo==='RIFA') await prisma.numero.create({data:{sorteoId:sorteo.id,valor:1,estado:'TOMADO',participanteId:titular.id}});
+       else await prisma.inscripcion.create({data:{sorteoId:sorteo.id,participanteId:titular.id}});
+       await prisma.tableroEnVivo.create({data:{sorteoId:sorteo.id}});
+       await prisma.resultadoSorteo.create({data:{sorteoId:sorteo.id,semilla:'test',hashPublicado:'test',ganadorTipo:tipo,ganadorValor:'1',inputs:{}}});
+       assert.equal((await eliminar(sorteo.id)).status,401);
+       assert.equal((await eliminar(sorteo.id,otro.id)).status,403);
+       assert(await prisma.sorteo.findUnique({where:{id:sorteo.id}}));
+       assert.equal((await eliminar(sorteo.id,user.id)).status,200);
+       assert.equal(await prisma.sorteo.findUnique({where:{id:sorteo.id}}),null);
+       assert.equal(await prisma.eventoEnVivo.count({where:{sorteoBingoId:sorteo.id}}),0);
+       assert.equal(await prisma.cantoBingo.count({where:{sorteoId:sorteo.id}}),0);
+       assert.equal((await fetch(base+'/s/'+sorteo.linkToken)).status,404);
+       assert.equal((await eliminar(sorteo.id,user.id)).status,404);
+     }
+     assert(await prisma.participante.findUnique({where:{id:titular.id}}));
+   } finally {
+     for(const id of ids) await eliminar(id,user.id);
+     await prisma.participante.delete({where:{id:titular.id}});await prisma.usuario.delete({where:{id:otro.id}});
    }
  });
  await t.test('Upgrade 101 y RESYNC con todos los campos persistidos',async()=>{
@@ -118,6 +165,12 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      const paused=await update;assert.equal(paused.estado,'PAUSADO');assert.equal(paused.secuencia,29);assert.equal(paused.numeroActual,15);
      assert.equal((await request('reanudar')).data.secuencia,30);
      const config=await request('configurar',{titulo:'Configurado',modo:'BINGO',rangoMax:90,sorteoBingoId:bingo.id});assert.equal(config.data.secuencia,31);assert.equal(config.data.ronda,2);assert.deepEqual(config.data.numerosExtraidos,[]);
+     const historial=await (await fetch(base+'/vivo/'+evento.linkToken+'/resultados')).json();
+     assert.equal(historial.cantos.length,1);assert.equal(historial.cantos[0].tipo,'BINGO');
+     assert.equal(historial.cantos[0].bolillas.length,15);
+     assert.equal(historial.cantos[0].ronda,1);
+     const identidad=await (await fetch(base+'/vivo/'+evento.linkToken+'/organizador')).json();
+     assert.deepEqual(identidad,{nombre:'Sync Test',dni:'12345678',telefono:'+54 11 12345678'});
    } finally {
      await prisma.eventoEnVivo.update({where:{id:evento.id},data:{sorteoBingoId:null}});
      await prisma.carton.deleteMany({where:{serieId:serie.id}});await prisma.serie.delete({where:{id:serie.id}});await prisma.sorteo.delete({where:{id:bingo.id}});
@@ -128,7 +181,7 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
    assert.equal(r.status,200);assert.equal(data.id,user.id);assert.equal(data.passwordHash,undefined);assert.equal((await fetch(base+'/auth/me')).status,401);
  });
  await t.test('Canto automático revisa todas las series confirmadas y rechaza bingo incompleto',async()=>{
-   const bingo=await prisma.sorteo.create({data:{organizadorId:user.id,tipo:'BINGO',titulo:'Auto test'}});
+   const bingo=await prisma.sorteo.create({data:{organizadorId:user.id,tipo:'BINGO',titulo:'Auto test',linkToken:crypto.randomUUID()}});
    const card=(pos,start)=>({posicion:pos,contenido:Array.from({length:3},(_,r)=>[...Array.from({length:5},(_,i)=>start+r*5+i),null,null,null,null])});
    const a=await prisma.serie.create({data:{sorteoId:bingo.id,numero:1,cantidadCartones:1,estado:'TOMADO',cartones:{create:[card(1,50)]}}});
    const b=await prisma.serie.create({data:{sorteoId:bingo.id,numero:2,cantidadCartones:2,estado:'TOMADO',cartones:{create:[card(1,30),card(2,1)]}}});
@@ -139,7 +192,20 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      assert.equal((await cantar('BINGO',[1,2])).status,409);
      assert.equal((await cantar('LINEA',[3])).status,403);
      assert.equal((await cantar('LINEA',[99])).status,403);
-     const line=await cantar('LINEA',[1,2]);assert.equal(line.status,200);assert.equal(line.data.numeroSerie,2);assert.equal(line.data.numeroCarton,2);assert.equal(line.data.estado,'EN_CURSO');
+     const line=await cantar('LINEA',[1,2]);assert.equal(line.status,200);assert.equal(line.data.numeroSerie,2);assert.equal(line.data.numeroCarton,2);assert.equal(line.data.estado,'PAUSADO');
+     assert.equal(line.data.cantos.length,1);
+     const extraer=await fetch(base+'/eventos-en-vivo/'+room.id+'/extraer',{method:'POST',headers:{Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})}});
+     assert.equal(extraer.status,409);
+     await prisma.serie.update({where:{id:c.id},data:{estado:'TOMADO'}});
+     await Promise.all([cantar('LINEA',[2]),cantar('LINEA',[3])]);
+     const recuperado=await (await fetch(base+'/vivo/'+room.linkToken)).json();
+     assert.equal(recuperado.cantos.length,2);
+     assert.deepEqual(recuperado.cantos.map(c=>c.numeroSerie).sort(),[2,3]);
+     const resultados=await (await fetch(base+'/s/'+bingo.linkToken+'/resultado')).json();
+     assert.equal(resultados.tipo,'BINGO');assert.equal(resultados.cantos.length,2);
+     assert.deepEqual(resultados.cantos.map(c=>c.numeroSerie).sort(),[2,3]);
+     const identidad=await (await fetch(base+'/s/'+bingo.linkToken+'/organizador')).json();
+     assert.equal(identidad.dni,'12345678');assert.equal(identidad.passwordHash,undefined);
      await modificarEvento(room.id,user.id,(e,tx)=>tx.eventoEnVivo.update({where:{id:e.id},data:{bolillas:Array.from({length:15},(_,i)=>i+1),secuencia:{increment:1}}}));
      const win=await cantar('BINGO',[1,2]);assert.equal(win.status,200);assert.equal(win.data.ganadores.length,1);assert.equal(win.data.numeroCarton,2);assert.equal(win.data.estado,'PAUSADO');
    } finally {

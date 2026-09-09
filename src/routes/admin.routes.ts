@@ -17,7 +17,7 @@ adminRouter.get(
         ...(estado ? { estado: estado.toUpperCase() as "PENDIENTE" | "APROBADO" | "RECHAZADO" } : {}),
       },
       orderBy: { creadoEn: "desc" },
-      select: { id: true, nombre: true, email: true, estado: true, creadoEn: true },
+      select: { id: true, nombre: true, dni: true, telefono: true, email: true, estado: true, creadoEn: true },
     });
     res.json(organizadores);
   })

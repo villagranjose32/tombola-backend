@@ -92,6 +92,29 @@ async function obtenerSorteoPropio(sorteoId: string, organizadorId: string) {
   return sorteo;
 }
 
+// Elimina el sorteo y sus datos asociados de forma atómica, conservando los titulares.
+sorteosRouter.delete("/:id", asyncHandler(async (req, res) => {
+  await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM sorteos WHERE id = ${req.params.id} FOR UPDATE`;
+    const sorteo = await tx.sorteo.findUnique({ where: { id: req.params.id } });
+    if (!sorteo) throw new HttpError(404, "Sorteo no encontrado");
+    if (sorteo.organizadorId !== req.usuario!.sub) throw new HttpError(403, "Ese sorteo no es tuyo");
+    await tx.$queryRaw`SELECT id FROM eventos_en_vivo WHERE "sorteoBingoId" = ${sorteo.id} ORDER BY id FOR UPDATE`;
+    await tx.estadoCartonesEnVivo.deleteMany({ where: { OR: [
+      { evento: { sorteoBingoId: sorteo.id } }, { serie: { sorteoId: sorteo.id } },
+    ] } });
+    await tx.eventoEnVivo.deleteMany({ where: { sorteoBingoId: sorteo.id } });
+    await tx.carton.deleteMany({ where: { serie: { sorteoId: sorteo.id } } });
+    await tx.serie.deleteMany({ where: { sorteoId: sorteo.id } });
+    await tx.numero.deleteMany({ where: { sorteoId: sorteo.id } });
+    await tx.inscripcion.deleteMany({ where: { sorteoId: sorteo.id } });
+    await tx.resultadoSorteo.deleteMany({ where: { sorteoId: sorteo.id } });
+    await tx.tableroEnVivo.deleteMany({ where: { sorteoId: sorteo.id } });
+    await tx.sorteo.delete({ where: { id: sorteo.id } });
+  });
+  res.json({ mensaje: "Sorteo eliminado" });
+}));
+
 // Tablero privado del organizador: muestra quién reservó cada número.
 sorteosRouter.get(
   "/:id/numeros",

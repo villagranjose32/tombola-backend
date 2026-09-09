@@ -14,6 +14,7 @@
   function enlace(pagina, serie) {
     const url = new URL(pagina, location.origin);
     url.searchParams.set('sorteo', token);
+    if (params.get('evento') === '1') url.searchParams.set('evento', '1');
     if (serie) url.searchParams.set('serie', serie);
     return url.href;
   }
@@ -108,7 +109,13 @@
     $('cartones').innerHTML = `<div class="acciones"><a class="enlace" href="${escape(pdf)}" target="_blank" rel="noopener">Descargar PDF</a></div><div class="cartones">${data.cartones.map(c => `<article class="carton"><h2>Cartón ${escape(c.posicion)}</h2><div class="celdas">${c.contenido.flat().map(n => `<div class="celda ${n === null ? 'vacia' : ''}">${escape(n)}</div>`).join('')}</div></article>`).join('')}</div>`;
   }
   async function resultado() {
-    const data = await api(ruta + '/resultado');
+    const data = await api(params.get('evento') === '1' ? `/vivo/${encodeURIComponent(token)}/resultados` : ruta + '/resultado');
+    if (data.tipo === 'BINGO') {
+      $('titulo').textContent = data.titulo || 'Resultados del bingo';
+      $('mensaje').textContent = 'Consultá los cantos validados y sus cartones.';
+      $('contenido').innerHTML = Transparencia.resultados(data);
+      return;
+    }
     $('mensaje').textContent = `Ganador: ${data.ganadorValor}`;
     $('contenido').innerHTML = `<dl>${[['Fecha',new Date(data.sorteadoEn).toLocaleString('es-AR')],['Verificación',data.verificado ? 'El hash coincide' : 'El hash no coincide'],['Semilla',data.semilla],['Hash publicado',data.hashPublicado],['Hash recalculado',data.hashRecalculado]].map(([k,v])=>`<dt>${k}</dt><dd>${escape(v)}</dd>`).join('')}</dl>`;
   }
@@ -120,6 +127,11 @@
     finally { cargando = false; }
   }
   if (!token?.trim()) { $('mensaje').textContent = 'El enlace está incompleto. Pedile el enlace al organizador.'; return; }
+  Transparencia.organizador(apiBase, params.get('evento') === '1' ? `/vivo/${encodeURIComponent(token)}` : ruta);
+  if (vista === 'tablero') {
+    const link = document.createElement('a'); link.className = 'enlace'; link.href = enlace('/resultado-publico.html'); link.textContent = 'Resultados';
+    document.querySelector('.acciones').append(link);
+  }
   $('compartir').hidden = false;
   $('actualizar').hidden = false;
   $('compartir').onclick = () => compartir(enlace(location.pathname, vista === 'descarga' ? numeroSerie : null));
@@ -128,7 +140,7 @@
   cargar();
   // Actualiza disponibilidad y pagos aunque se haya interrumpido la conexión.
   const timer = setInterval(() => {
-    if (!document.hidden && !$('reserva').open && vista === 'tablero') cargar();
+    if (!document.hidden && !$('reserva').open && ['tablero', 'resultado'].includes(vista)) cargar();
   }, 15000);
   window.addEventListener('pagehide', () => clearInterval(timer), {once:true});
 })();

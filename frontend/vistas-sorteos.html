@@ -152,7 +152,7 @@
   .password-wrap{position:relative}.password-wrap input{padding-right:48px}.password-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:36px;display:grid;place-items:center;background:transparent;border:0;color:var(--paper);cursor:pointer}.password-eye svg{width:22px;height:22px}.password-eye[aria-pressed="false"] .eye-slash{display:none}
   #tabs{position:sticky;top:0;z-index:40;background:var(--ink)}
 </style>
-</head>
+<link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script></head>
 <body>
 
 <div class="marquee-bar"></div>
@@ -344,7 +344,7 @@
     <div class="view-head">
       <div class="eyebrow">Vista · Público</div>
       <h1 class="view-title">Resultado y auditoría</h1>
-      <div class="view-desc">Consultá el ganador y los datos de verificación del sorteo.</div>
+      <div class="view-desc">Consultá quiénes cantaron línea o bingo, sus cartones y los datos de verificación del sorteo.</div>
     </div>
     <div class="panel" style="margin-bottom:14px;">
       <div class="row" style="align-items:flex-end;">
@@ -633,7 +633,7 @@ async function cargarAdmin() {
            <button class="btn btn-primary btn-sm" onclick="decidirOrganizador('${o.id}','aprobar')">Aprobar</button>`
         : '';
       return `<tr>
-        <td>${escapeHtml(o.nombre)}</td>
+        <td>${escapeHtml(o.nombre)}<br><span class="muted">DNI: ${escapeHtml(o.dni || 'No informado')} · Tel.: ${escapeHtml(o.telefono || 'No informado')}</span></td>
         <td class="mono muted">${escapeHtml(o.email)}</td>
         <td class="muted">${new Date(o.creadoEn).toLocaleString('es-AR')}</td>
         <td><span class="chip ${chipClass}">${o.estado}</span></td>
@@ -687,6 +687,7 @@ function renderSorteoCard(s) {
     ? `<button class="btn btn-primary btn-sm" onclick="sortearSorteo('${s.id}')">Sortear</button>`
     : `<span class="muted" style="font-size:11px;">Bingo cerrado</span>`;
   if (s.estado === 'SORTEADO') acciones = `<button class="btn btn-ghost btn-sm" onclick="irAVerResultado('${s.linkToken}')">Ver resultado</button>`;
+  acciones += `<button class="btn btn-danger btn-sm" onclick="eliminarSorteo('${s.id}', this)">Eliminar</button>`;
   const enlacePublico = s.linkToken ? urlPublicaSorteo(s) : '';
   const datosPublicos = s.linkToken ? `
     <div class="muted" style="font-size:11px;margin-top:10px;">Enlace para participar</div>
@@ -695,7 +696,7 @@ function renderSorteoCard(s) {
       <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace público</a>
       <button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlPublicaSorteo(misSorteosCache.find(x => x.id === '${s.id}')), this)">Copiar enlace</button>
       ${s.tipo === 'BINGO' ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlDescargaSerie(s.linkToken))}" target="_blank" rel="noopener">Abrir descarga de series</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlDescargaSerie('${s.linkToken}'), this)">Compartir descarga</button>` : ''}
-      ${s.estado === 'SORTEADO' ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlResultadoPublico(s.linkToken))}" target="_blank" rel="noopener">Abrir resultado público</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlResultadoPublico('${s.linkToken}'), this)">Compartir resultado</button>` : ''}
+      ${(s.estado === 'SORTEADO' || s.tipo === 'BINGO') ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlResultadoPublico(s.linkToken))}" target="_blank" rel="noopener">Abrir resultado público</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlResultadoPublico('${s.linkToken}'), this)">Compartir resultado</button>` : ''}
     </div>` : `<div class="meta">Todavía no tiene enlace público</div>`;
   return `<div class="sorteo-card">
     <div class="tipo">${tipoLabel}</div>
@@ -703,6 +704,17 @@ function renderSorteoCard(s) {
     ${datosPublicos}
     <div class="row"><span class="chip ${chipClass}">${s.estado}</span>${acciones}</div>
   </div>`;
+}
+
+async function eliminarSorteo(id, boton) {
+  const sorteo = misSorteosCache.find(s => s.id === id);
+  if (!sorteo || boton.disabled) return;
+  if (!confirm(`¿Eliminar "${sorteo.titulo}"? Se borrarán sus reservas, cartones, resultados y bolilleros vinculados. Los enlaces dejarán de funcionar. Esta acción no se puede deshacer.`)) return;
+  boton.disabled = true;
+  try {
+    await api(`/sorteos/${id}`, {method: 'DELETE', token: orgToken});
+    await cargarMisSorteos();
+  } catch (e) { alert(e.message); boton.disabled = false; }
 }
 
 async function publicarSorteo(id) {
@@ -1022,7 +1034,16 @@ async function verResultado() {
   const panel = document.getElementById('resultadoPanel');
   if (!token) return;
   try {
-    const r = await api(`/s/${token}/resultado`);
+    const entrada = document.getElementById('resultadoToken').value;
+    const evento = entrada.includes('modo=espectador') || entrada.includes('evento=1');
+    const ruta = evento ? `/vivo/${encodeURIComponent(token)}` : `/s/${encodeURIComponent(token)}`;
+    const r = await api(ruta + (evento ? '/resultados' : '/resultado'));
+    Transparencia.organizador(API, ruta);
+    if (r.tipo === 'BINGO') {
+      panel.style.display = 'block';
+      panel.innerHTML = Transparencia.resultados(r);
+      return;
+    }
     panel.style.display = 'block';
     panel.innerHTML = `
       <div class="winner-block">

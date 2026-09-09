@@ -16,3 +16,15 @@ test('Filas vacías y marcas manuales no producen ganadores',()=>{
  assert.deepEqual(detectarGanadores([{numero:1,participante:null,cartones:[{id:'a',posicion:1,contenido:[[null,null,null]]}],marcas:{a:[1,2,3]}}],[],'LINEA'),[]);
  assert.deepEqual(detectarGanadores(series,[],'BINGO'),[]);
 });
+
+const {acumularCantos}=require('../dist/src/utils/ganadoresBingo');
+test('Acumula cantos de diferentes titulares y premios sin duplicarlos',()=>{
+ const first=detectarGanadores([{numero:1,participante:{nombre:'Ana'},cartones:[card(1)]}],Array.from({length:15},(_,i)=>i+1),'BINGO');
+ const second=detectarGanadores([{numero:2,participante:{nombre:'Luis'},cartones:[{...card(2),id:'otro'}]}],Array.from({length:15},(_,i)=>i+1),'BINGO');
+ let cantos=acumularCantos([],first,'LINEA',15);
+ cantos=acumularCantos(cantos,second,'BINGO',15);
+ cantos=acumularCantos(cantos,first,'LINEA',15);
+ assert.equal(cantos.length,2);
+ assert.deepEqual(cantos.map(c=>c.participante),['Ana','Luis']);
+ assert.deepEqual(acumularCantos(cantos,second,'LINEA',16).map(c=>c.participante),['Luis']);
+});

@@ -36,11 +36,13 @@ test('Registro valida confirmación y envía solo los datos del organizador', as
   await app.get('registro').onsubmit({preventDefault() {}});
   assert.equal(app.calls.length, 0);
   app.get('repetirPassword').value = 'password123';
-  app.get('nombre').value = 'Club';
+  app.get('nombre').value = 'Ana Pérez';
+  app.get('dni').value = '12345678';
+  app.get('telefono').value = '+54 11 12345678';
   app.get('registroEmail').value = 'club@example.com';
   await app.get('registro').onsubmit({preventDefault() {}});
   assert.equal(app.calls[0].url, 'https://example.com/auth/registro');
-  assert.deepEqual(JSON.parse(app.calls[0].options.body), {nombre: 'Club', email: 'club@example.com', password: 'password123'});
+  assert.deepEqual(JSON.parse(app.calls[0].options.body), {nombre: 'Ana Pérez', dni: '12345678', telefono: '+54 11 12345678', email: 'club@example.com', password: 'password123'});
   assert.equal(app.get('registro').hidden, true);
   assert.equal(app.get('mensaje').textContent, 'Cuenta pendiente de aprobación');
 });

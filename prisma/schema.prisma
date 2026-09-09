@@ -47,6 +47,8 @@ model Usuario {
   email        String            @unique
   passwordHash String
   nombre       String
+  dni          String?
+  telefono     String?
   rol          RolUsuario        @default(ORGANIZADOR)
   estado       EstadoOrganizador @default(PENDIENTE)
   creadoEn     DateTime          @default(now())
@@ -57,6 +59,7 @@ model Usuario {
 }
 
 model EventoEnVivo {
+  cantos           Json              @default("[]")
   secuencia        Int               @default(0)
   ronda            Int               @default(0)
   id               String            @id @default(uuid())
@@ -75,6 +78,7 @@ model EventoEnVivo {
   estado           String            @default("EN_CURSO")
   actualizadoEn    DateTime          @updatedAt
   creadoEn         DateTime          @default(now())
+  historialCantos CantoBingo[]
   estadosCartones  EstadoCartonesEnVivo[]
 
   @@index([organizadorId])
@@ -102,6 +106,7 @@ model Sorteo {
   tableroEnVivo TableroEnVivo?
   resultado    ResultadoSorteo?
   eventosEnVivo EventoEnVivo[]
+  cantosBingo CantoBingo[]
 
   @@map("sorteos")
 }
@@ -232,4 +237,26 @@ model TableroEnVivo {
   creadoEn         DateTime          @default(now())
 
   @@map("tableros_en_vivo")
+}
+
+// Historial independiente de la pausa: se conserva al reanudar y reiniciar.
+model CantoBingo {
+  id String @id @default(uuid())
+  eventoId String
+  evento EventoEnVivo @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  sorteoId String
+  sorteo Sorteo @relation(fields: [sorteoId], references: [id], onDelete: Cascade)
+  ronda Int
+  tipo String
+  cartonId String
+  numeroSerie Int
+  numeroCarton Int
+  participante String?
+  contenido Json
+  bolillas Json
+  cantadoEn DateTime @default(now())
+
+  @@unique([eventoId, ronda, tipo, cartonId])
+  @@index([sorteoId, cantadoEn])
+  @@map("cantos_bingo")
 }

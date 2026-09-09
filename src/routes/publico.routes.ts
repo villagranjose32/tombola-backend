@@ -1,3 +1,4 @@
+import { organizadorPublico, resultadosBingo } from "../utils/transparencia";
 import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
@@ -351,6 +352,9 @@ publicoRouter.get(
   "/:token/resultado",
   asyncHandler(async (req, res) => {
     const sorteo = await obtenerSorteoPorToken(req.params.token);
+    if (sorteo.tipo === "BINGO") {
+      return res.set("Cache-Control", "no-store").json({ titulo: sorteo.titulo, ...await resultadosBingo({ sorteoId: sorteo.id }) });
+    }
     const resultado = await prisma.resultadoSorteo.findUnique({ where: { sorteoId: sorteo.id } });
     if (!resultado) throw new HttpError(404, "Este sorteo todavía no tiene resultado");
 
@@ -371,3 +375,9 @@ publicoRouter.get(
     });
   })
 );
+
+publicoRouter.get("/:token/organizador", asyncHandler(async (req, res) => {
+  const sorteo = await prisma.sorteo.findUnique({ where: { linkToken: req.params.token }, select: { organizador: { select: organizadorPublico } } });
+  if (!sorteo) throw new HttpError(404, "Sorteo no encontrado");
+  res.json(sorteo.organizador);
+}));

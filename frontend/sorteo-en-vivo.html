@@ -107,13 +107,14 @@
   .juego-cabecera .historial{justify-content:space-between}.juego-cabecera .field{margin:0}.juego-cabecera .sub-controls{margin-top:10px}
   @media(max-width:1100px){.bolillero-layout{grid-template-columns:1fr}}
 </style>
-</head>
+<link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script></head>
 <body>
 <div class="marquee-bar"></div>
 <header>
   <div>
     <div class="eyebrow">Bingo Virtual · Sorteo en vivo</div>
     <h1 id="tituloSorteo">Bolillero</h1>
+    <a id="enlaceResultados" href="#" hidden style="color:inherit">Resultados: líneas y bingos</a>
   </div>
 </header>
 <nav id="menuOrganizador" aria-label="Menú del organizador" hidden>
@@ -445,9 +446,10 @@
   const autoplayBtn = document.getElementById('autoplayBtn');
   autoplayBtn.addEventListener('click', () => autoplay ? pararAutoplay() : arrancarAutoplay());
   function arrancarAutoplay(){
+    if (!estado || estado.estado !== 'EN_CURSO') return;
     autoplay = true; autoplayBtn.textContent = '⏸ Pausar'; autoplayBtn.classList.add('active');
     clearInterval(autoTimer);
-    autoTimer = setInterval(() => { if (!document.getElementById('btnExtraer').disabled) extraerBolilla(); }, autoplaySeconds*1000);
+    autoTimer = setInterval(() => { if (estado?.estado === 'EN_CURSO' && !document.getElementById('btnExtraer').disabled) extraerBolilla(); }, autoplaySeconds*1000);
   }
   function pararAutoplay(){
     autoplay = false; autoplayBtn.textContent = '▶ Iniciar automático'; autoplayBtn.classList.remove('active');
@@ -473,6 +475,10 @@
   function conectarWs(token) {
     if (liveSync?.token === token) { liveSync.start(); liveSync.recover(); return; }
     liveSync?.stop();
+    Transparencia.organizador(API, `/vivo/${encodeURIComponent(token)}`);
+    const resultados = document.getElementById('enlaceResultados');
+    resultados.hidden = false;
+    resultados.href = '/resultado-publico.html?evento=1&sorteo=' + encodeURIComponent(token);
     liveSync = new LiveSync({
       baseUrl: API, token,
       onStatus: ({text, stale}) => {
@@ -508,8 +514,9 @@
         else mostrarBolillaGrande(estado.numeroActual, animate);
         pintarEstado(estado);
         if (animate) cantar(estado.numeroActual);
-        if (estado.tipo === 'reclamo') mostrarReclamo(estado);
+        mostrarReclamo(estado);
         if (estado.estado !== 'EN_CURSO') pararAutoplay();
+        autoplayBtn.disabled = estado.estado !== 'EN_CURSO';
         if (modoPantalla === 'organizador') {
           document.getElementById('btnExtraer').disabled = estado.estado === 'FINALIZADO';
           document.getElementById('btnExtraer').textContent = estado.estado === 'PAUSADO' ? 'Reanudar extracción' : 'Extraer bolilla';
@@ -580,15 +587,22 @@
   function mostrarReclamo(evt){
     const panel=document.getElementById('reclamoPublico');
     const extraidas = new Set(evt.bolillas || []);
-    const ganadores = evt.ganadores || [evt];
-    panel.innerHTML = `<div class="claim-title">🏆 ${evt.reclamo === 'BINGO' ? 'BINGO' : 'LÍNEA'} VALIDADO</div>` + ganadores.map(ganador => {
+    const ganadores = evt.cantos || [];
+    const mostrar = ganadores.length > 0;
+    document.getElementById('cartonesEnVivo').hidden = mostrar;
+    panel.classList.toggle('show', mostrar);
+    if (!mostrar) { panel.innerHTML = ''; panel.dataset.cantos = ''; return; }
+    const clave = JSON.stringify(ganadores);
+    const cambio = panel.dataset.cantos !== clave;
+    panel.dataset.cantos = clave;
+    panel.innerHTML = `<div class="claim-title">🏆 CANTOS VALIDADOS · Bolilla ${evt.numeroActual ?? ''}</div>` + ganadores.map(ganador => {
       const c = ganador.carton;
       const participante = ganador.participante ? ` · ${escapeHtml(ganador.participante)}` : '';
-      return `<div class="claim-meta">Serie ${String(ganador.numeroSerie).padStart(3,'0')} · Cartón ${ganador.numeroCarton}${participante}</div>
+      return `<div class="claim-meta"><strong>${ganador.tipo === 'BINGO' ? 'BINGO' : 'LÍNEA'}</strong> · Serie ${String(ganador.numeroSerie).padStart(3,'0')} · Cartón ${ganador.numeroCarton}${participante}</div>
         <div class="live-cards"><div class="live-card"><strong>Cartón ${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => n === null ? '<span class="live-cell blank"></span>' : `<span class="live-cell ${extraidas.has(n) ? 'mark' : ''}"><span class="cell-number">${n}</span>${extraidas.has(n) ? '<span class="mark-symbol">✓</span>' : ''}</span>`).join('')}</div></div></div>`;
     }).join('');
     panel.classList.add('show');
-    panel.scrollIntoView({behavior:'smooth',block:'start'});
+    if (cambio) panel.scrollIntoView({behavior:'smooth',block:'start'});
   }
   async function cantarReclamo(tipo){
     try{
@@ -598,8 +612,7 @@
       document.getElementById('btnCantarBingo').disabled = true;
       const resultado=await api(`/vivo/${sorteoToken}/cantar`,{method:'POST',body:{tipo,numerosSeries}});
       document.getElementById('reclamoMsg').textContent = `${tipo === 'BINGO' ? 'Bingo' : 'Línea'} validado.`;
-      mostrarReclamo(resultado);
-      if(resultado.estadoEvento==='PAUSADO'&&estado)estado.estado='PAUSADO';
+      liveSync?.accept(resultado, true, false);
     }catch(e){document.getElementById('reclamoMsg').textContent=e.message;}
     finally {
       document.getElementById('btnCantarLinea').disabled = false;

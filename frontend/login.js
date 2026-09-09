@@ -16,7 +16,7 @@
       ...(body ? {body: JSON.stringify(body)} : {})
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'No se pudo completar la solicitud.');
+    if (!response.ok) throw new Error(Object.values(data.detalles?.fieldErrors || {}).flat().join(' ') || data.error || 'No se pudo completar la solicitud.');
     return data;
   }
   function mostrarRegistro(registro) {
@@ -25,6 +25,12 @@
     $('mensaje').textContent = '';
     $(registro ? 'nombre' : 'email').focus();
   }
+  $('mostrarLoginPassword').onclick = () => {
+    const visible = $('password').type === 'password';
+    $('password').type = visible ? 'text' : 'password';
+    $('mostrarLoginPassword').setAttribute('aria-pressed', String(visible));
+    $('mostrarLoginPassword').setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  };
   $('crearCuenta').onclick = () => mostrarRegistro(true);
   $('volver').onclick = () => mostrarRegistro(false);
   $('mostrarPassword').onclick = () => {
@@ -57,7 +63,7 @@
     boton.disabled = true;
     try {
       const email = $('registroEmail').value.trim();
-      const data = await api('/auth/registro', {nombre: $('nombre').value.trim(), email, password: $('registroPassword').value});
+      const data = await api('/auth/registro', {nombre: $('nombre').value.trim(), dni: $('dni').value.trim(), telefono: $('telefono').value.trim(), email, password: $('registroPassword').value});
       $('registro').reset();
       $('email').value = email;
       mostrarRegistro(false);

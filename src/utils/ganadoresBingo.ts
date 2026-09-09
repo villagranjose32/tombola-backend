@@ -18,3 +18,14 @@ export function detectarGanadores<T extends {
     carton: { id: carton.id, posicion: carton.posicion, contenido: carton.contenido },
   })));
 }
+
+/** Conserva todos los cantos de la jugada sin duplicar un mismo cartón y premio. */
+export function acumularCantos(anteriores: unknown, ganadores: ReturnType<typeof detectarGanadores>, tipo: "LINEA" | "BINGO", jugada: number) {
+  const cantos = (Array.isArray(anteriores) ? anteriores : []).filter(c => c.jugada === jugada);
+  for (const ganador of ganadores) {
+    if (!cantos.some(c => c.tipo === tipo && c.carton.id === ganador.carton.id)) {
+      cantos.push({ ...ganador, tipo, jugada });
+    }
+  }
+  return cantos;
+}

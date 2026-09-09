@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { organizadorPublico, resultadosBingo } from "../utils/transparencia";
 import { Router } from "express";
 import crypto from "crypto";
 import { z } from "zod";
@@ -6,7 +8,7 @@ import { requiereAuth, requiereOrganizadorAprobado } from "../middleware/auth";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { generarLinkToken } from "../utils/tokens";
 import { emitirCambio } from "../realtime";
-import { detectarGanadores } from "../utils/ganadoresBingo";
+import { acumularCantos, detectarGanadores } from "../utils/ganadoresBingo";
 import { estadoEnVivo, modificarEvento, snapshotPorToken } from "../utils/estadoEnVivo";
 
 export const eventosEnVivoRouter = Router();
@@ -65,7 +67,7 @@ eventosEnVivoRouter.post("/:id/configurar", asyncHandler(async (req, res) => {
     return tx.eventoEnVivo.update({ where: { id: req.params.id }, data: {
       titulo: datos.titulo, modo: datos.modo, rangoMax: datos.rangoMax,
       umbralRepeticion: datos.modo === "REPETICION" ? datos.umbralRepeticion ?? 3 : null, sorteoBingoId: datos.sorteoBingoId,
-      bolillas: [], conteos: {}, ganadorNumero: null, estado: "EN_CURSO",
+      bolillas: [], conteos: {}, cantos: [], ganadorNumero: null, estado: "EN_CURSO",
       secuencia: { increment: 1 }, ronda: { increment: 1 },
     } });
   });
@@ -75,7 +77,7 @@ eventosEnVivoRouter.post("/:id/configurar", asyncHandler(async (req, res) => {
 
 eventosEnVivoRouter.post("/:id/extraer", asyncHandler(async (req, res) => {
   const actualizado = await modificarEvento(req.params.id, req.usuario!.sub, async (evento, tx) => {
-    if (evento.estado !== "EN_CURSO") throw new HttpError(409, evento.estado === "PAUSADO" ? "La extracción está pausada por un bingo validado" : "El sorteo ya finalizó");
+    if (evento.estado !== "EN_CURSO") throw new HttpError(409, evento.estado === "PAUSADO" ? "La extracción está pausada por un canto de línea o bingo" : "El sorteo ya finalizó");
     const bolillas = [...(evento.bolillas as number[])];
     const conteos = { ...(evento.conteos as Record<string, number>) };
     let numero: number;
@@ -89,7 +91,7 @@ eventosEnVivoRouter.post("/:id/extraer", asyncHandler(async (req, res) => {
     let ganadorNumero = evento.ganadorNumero; let estado = evento.estado;
     if (evento.modo === "REPETICION" && evento.umbralRepeticion && conteos[numero] >= evento.umbralRepeticion) { ganadorNumero = numero; estado = "FINALIZADO"; }
     if (evento.modo === "BINGO" && bolillas.length === evento.rangoMax) estado = "FINALIZADO";
-    return tx.eventoEnVivo.update({ where: { id: evento.id }, data: { bolillas, conteos, ganadorNumero, estado, secuencia: { increment: 1 } } });
+    return tx.eventoEnVivo.update({ where: { id: evento.id }, data: { bolillas, conteos, cantos: [], ganadorNumero, estado, secuencia: { increment: 1 } } });
   });
   const snapshot = estadoEnVivo(actualizado);
   emitirCambio(actualizado.linkToken, { tipo: "bolilla", type: "STATE_UPDATE", accion: "extraida", numero: snapshot.numeroActual, ...snapshot });
@@ -100,7 +102,7 @@ eventosEnVivoRouter.post("/:id/reiniciar", asyncHandler(async (req, res) => {
   const actualizado = await modificarEvento(req.params.id, req.usuario!.sub, async (evento, tx) => {
     await tx.estadoCartonesEnVivo.deleteMany({ where: { eventoId: evento.id } });
     return tx.eventoEnVivo.update({ where: { id: evento.id }, data: {
-      bolillas: [], conteos: {}, ganadorNumero: null, estado: "EN_CURSO",
+      bolillas: [], conteos: {}, cantos: [], ganadorNumero: null, estado: "EN_CURSO",
       secuencia: { increment: 1 }, ronda: { increment: 1 },
     } });
   });
@@ -111,7 +113,7 @@ eventosEnVivoRouter.post("/:id/reiniciar", asyncHandler(async (req, res) => {
 eventosEnVivoRouter.post("/:id/reanudar", asyncHandler(async (req, res) => {
   const actualizado = await modificarEvento(req.params.id, req.usuario!.sub, async (evento, tx) => {
     if (evento.estado !== "PAUSADO") throw new HttpError(409, "El sorteo no está pausado");
-    return tx.eventoEnVivo.update({ where: { id: evento.id }, data: { estado: "EN_CURSO", secuencia: { increment: 1 } } });
+    return tx.eventoEnVivo.update({ where: { id: evento.id }, data: { estado: "EN_CURSO", cantos: [], secuencia: { increment: 1 } } });
   });
   emitirCambio(actualizado.linkToken, { tipo: "bolilla", type: "STATE_UPDATE", accion: "reanudado", ...estadoEnVivo(actualizado) });
   res.json(estadoEnVivo(actualizado));
@@ -172,8 +174,20 @@ eventosEnVivoPublicoRouter.post("/:token/cantar", asyncHandler(async (req, res) 
     if (!ganadores.length) throw new HttpError(409, datos.tipo === "BINGO"
       ? "Todavía no hay un cartón con bingo entre tus series."
       : "Todavía no hay una línea completa entre tus cartones.");
+    for (const ganador of ganadores) {
+      await tx.cantoBingo.upsert({
+        where: { eventoId_ronda_tipo_cartonId: { eventoId: actual.id, ronda: actual.ronda, tipo: datos.tipo, cartonId: ganador.carton.id } },
+        update: {},
+        create: { eventoId: actual.id, sorteoId: actual.sorteoBingoId, ronda: actual.ronda,
+          tipo: datos.tipo, cartonId: ganador.carton.id, numeroSerie: ganador.numeroSerie,
+          numeroCarton: ganador.numeroCarton, participante: ganador.participante,
+          contenido: ganador.carton.contenido as Prisma.InputJsonValue, bolillas: actual.bolillas as Prisma.InputJsonValue },
+      });
+    }
     const actualizado = await tx.eventoEnVivo.update({ where: { id: actual.id }, data: {
-      ...(datos.tipo === "BINGO" ? { estado: "PAUSADO" } : {}), secuencia: { increment: 1 },
+      estado: "PAUSADO",
+      cantos: acumularCantos(actual.cantos, ganadores, datos.tipo, (actual.bolillas as number[]).length),
+      secuencia: { increment: 1 },
     } });
     return { actualizado, ganadores };
   });
@@ -193,4 +207,15 @@ eventosEnVivoRouter.get("/:id/series/:numero", asyncHandler(async (req, res) => 
   if (!serie) throw new HttpError(404, "Serie no encontrada");
   const estado = await prisma.estadoCartonesEnVivo.findUnique({ where: { eventoId_serieId: { eventoId: evento.id, serieId: serie.id } } });
   res.json({ numeroSerie: serie.numero, participante: serie.participante, cartones: serie.cartones, marcas: estado?.marcas || {} });
+}));
+
+eventosEnVivoPublicoRouter.get("/:token/organizador", asyncHandler(async (req, res) => {
+  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken: req.params.token }, select: { organizador: { select: organizadorPublico } } });
+  if (!evento) throw new HttpError(404, "Sorteo en vivo no encontrado");
+  res.json(evento.organizador);
+}));
+eventosEnVivoPublicoRouter.get("/:token/resultados", asyncHandler(async (req, res) => {
+  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken: req.params.token }, select: { id: true, titulo: true } });
+  if (!evento) throw new HttpError(404, "Sorteo en vivo no encontrado");
+  res.set("Cache-Control", "no-store").json({ titulo: evento.titulo, ...await resultadosBingo({ eventoId: evento.id }) });
 }));
