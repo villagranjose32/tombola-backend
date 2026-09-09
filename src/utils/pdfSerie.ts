@@ -40,29 +40,32 @@ export function generarPdfSerie(
   res: Response,
   datos: { tituloSorteo: string; numeroSerie: number; cartones: CartonParaPdf[] }
 ) {
+  generarPdfSeries(res, { tituloSorteo: datos.tituloSorteo, series: [datos] });
+}
+
+export function generarPdfSeries(res: Response, datos: {
+  tituloSorteo: string;
+  series: Array<{ numeroSerie: number; cartones: CartonParaPdf[] }>;
+}) {
   const doc = new PDFDocument({ margin: 40, size: "A4" });
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `attachment; filename="serie-${datos.numeroSerie}.pdf"`);
+  const nombre = datos.series.length === 1 ? `serie-${datos.series[0].numeroSerie}` : "mis-cartones";
+  res.setHeader("Content-Disposition", `attachment; filename="${nombre}.pdf"`);
   doc.pipe(res);
-
-  doc.fontSize(18).text(datos.tituloSorteo, { align: "center" });
-  doc.fontSize(12).fillColor("#555").text(`Serie N.º ${String(datos.numeroSerie).padStart(3, "0")}`, {
-    align: "center",
-  });
-  doc.moveDown(2);
-  doc.fillColor("#000");
-
-  let y = doc.y;
-  const espacioEntreCartones = 120;
-
-  for (const carton of datos.cartones) {
-    if (y + 100 > doc.page.height - 40) {
-      doc.addPage();
-      y = 60;
+  datos.series.forEach((serie, indice) => {
+    if (indice) doc.addPage();
+    const encabezado = () => {
+      doc.fillColor("#000").fontSize(18).text(datos.tituloSorteo, 40, 40, { align: "center" });
+      doc.fontSize(12).fillColor("#555").text(`Serie N.º ${String(serie.numeroSerie).padStart(3, "0")}`, { align: "center" });
+      doc.moveDown(2); doc.fillColor("#000");
+      return doc.y;
+    };
+    let y = encabezado();
+    for (const carton of serie.cartones) {
+      if (y + 114 > doc.page.height - 40) { doc.addPage(); y = encabezado(); }
+      dibujarCarton(doc, carton, 60, y + 14);
+      y += 120;
     }
-    dibujarCarton(doc, carton, 60, y + 14);
-    y += espacioEntreCartones;
-  }
-
+  });
   doc.end();
 }

@@ -6,7 +6,7 @@ import { prisma } from "../db";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { generarCodigoVerificacion, hashCodigo, verificarCodigo } from "../utils/tokens";
 import { firmarReingreso, verificarReingreso } from "../utils/reingreso";
-import { generarPdfSerie } from "../utils/pdfSerie";
+import { generarPdfSerie, generarPdfSeries } from "../utils/pdfSerie";
 import { emitirCambio } from "../realtime";
 import { estadoEnVivo } from "../utils/estadoEnVivo";
 import { verificarResultado } from "../utils/sorteoEngine";
@@ -380,4 +380,40 @@ publicoRouter.get("/:token/organizador", asyncHandler(async (req, res) => {
   const sorteo = await prisma.sorteo.findUnique({ where: { linkToken: req.params.token }, select: { organizador: { select: organizadorPublico } } });
   if (!sorteo) throw new HttpError(404, "Sorteo no encontrado");
   res.json(sorteo.organizador);
+}));
+
+const consultaDniSchema = z.object({
+  dni: z.string().trim().regex(/^[0-9]{7,8}$/, "Ingresá un DNI de 7 u 8 dígitos, sin puntos"),
+  numeroSerie: z.number().int().positive().optional(),
+});
+
+// Consulta limitada al bingo del enlace y a las series del DNI ingresado.
+publicoRouter.post("/:token/mis-series", asyncHandler(async (req, res) => {
+  const { dni } = consultaDniSchema.parse(req.body);
+  const sorteo = await obtenerSorteoPorToken(req.params.token);
+  if (sorteo.tipo !== "BINGO") throw new HttpError(400, "Este sorteo no es un bingo");
+  const series = await prisma.serie.findMany({
+    where: { sorteoId: sorteo.id, participante: { dni }, estado: { in: ["TOMADO", "RESERVADO"] } },
+    orderBy: { numero: "asc" },
+    select: { numero: true, estado: true, reservadoHasta: true, participante: { select: { nombre: true } },
+      cartones: { orderBy: { posicion: "asc" }, select: { posicion: true, contenido: true } } },
+  });
+  res.set("Cache-Control", "no-store").json({ titulo: sorteo.titulo,
+    series: series.filter(s => s.estado === "TOMADO").map(s => ({ numeroSerie: s.numero, nombre: s.participante?.nombre, cartones: s.cartones })),
+    pendientes: series.filter(s => s.estado === "RESERVADO" && (!s.reservadoHasta || s.reservadoHasta > new Date())).map(s => s.numero),
+  });
+}));
+
+publicoRouter.post("/:token/mis-series/descargar", asyncHandler(async (req, res) => {
+  const { dni, numeroSerie } = consultaDniSchema.parse(req.body);
+  const sorteo = await obtenerSorteoPorToken(req.params.token);
+  if (sorteo.tipo !== "BINGO") throw new HttpError(400, "Este sorteo no es un bingo");
+  const series = await prisma.serie.findMany({
+    where: { sorteoId: sorteo.id, participante: { dni }, estado: "TOMADO", ...(numeroSerie ? { numero: numeroSerie } : {}) },
+    orderBy: { numero: "asc" }, include: { cartones: { orderBy: { posicion: "asc" } } },
+  });
+  if (!series.length) throw new HttpError(404, "No encontramos series confirmadas para ese DNI");
+  res.set("Cache-Control", "no-store");
+  generarPdfSeries(res, { tituloSorteo: sorteo.titulo, series: series.map(s => ({ numeroSerie: s.numero,
+    cartones: s.cartones.map(c => ({ posicion: c.posicion, contenido: c.contenido as any })) })) });
 }));

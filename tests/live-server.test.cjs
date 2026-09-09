@@ -106,6 +106,36 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      await prisma.participante.delete({where:{id:titular.id}});await prisma.usuario.delete({where:{id:otro.id}});
    }
  });
+ await t.test('DNI reúne series confirmadas del mismo bingo y descarga PDF conjunto',async()=>{
+   const ids=[],participantes=[];
+   try {
+     for(const [nombre,dni] of [['Ana Pérez','12345678'],['Ana Pérez','12345678'],['Otra Persona','87654321']]) {
+       participantes.push(await prisma.participante.create({data:{nombre,dni,contacto:crypto.randomUUID()}}));
+     }
+     for(let i=0;i<2;i++)ids.push(await prisma.sorteo.create({data:{organizadorId:user.id,tipo:'BINGO',titulo:'Consulta DNI',linkToken:crypto.randomUUID()}}));
+     const carton={posicion:1,contenido:[[1,2,3,4,5,null,null,null,null],[6,7,8,9,10,null,null,null,null],[11,12,13,14,15,null,null,null,null]]};
+     for(const [numero,persona,estado] of [[1,0,'TOMADO'],[2,1,'TOMADO'],[3,0,'RESERVADO'],[4,2,'TOMADO']]) {
+       await prisma.serie.create({data:{sorteoId:ids[0].id,numero,cantidadCartones:1,participanteId:participantes[persona].id,estado,cartones:{create:carton}}});
+     }
+     await prisma.serie.create({data:{sorteoId:ids[1].id,numero:99,cantidadCartones:1,participanteId:participantes[0].id,estado:'TOMADO',cartones:{create:carton}}});
+     const consultar=(suffix,body)=>fetch(base+'/s/'+ids[0].linkToken+'/mis-series'+suffix,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+     assert.equal((await consultar('',{dni:'abc'})).status,400);
+     const respuesta=await consultar('',{dni:'12345678'});assert.equal(respuesta.headers.get('cache-control'),'no-store');
+     const datos=await respuesta.json();assert.deepEqual(datos.series.map(s=>s.numeroSerie),[1,2]);assert.deepEqual(datos.pendientes,[3]);
+     assert.equal(datos.series[0].cartones.length,1);assert.equal(datos.series[1].nombre,'Ana Pérez');
+     assert.deepEqual((await (await consultar('',{dni:'11111111'})).json()).series,[]);
+     for(const numeroSerie of [3,4,99])assert.equal((await consultar('/descargar',{dni:'12345678',numeroSerie})).status,404);
+     const pdf=await consultar('/descargar',{dni:'12345678'});assert.equal(pdf.status,200);assert.match(pdf.headers.get('content-type'),/application\/pdf/);
+     const buffer=Buffer.from(await pdf.arrayBuffer());assert.equal(buffer.subarray(0,5).toString(),'%PDF-');
+     const {spawnSync}=require('node:child_process');
+     const texto=spawnSync('pdftotext',['-','-'],{input:buffer});assert.equal(texto.status,0);
+     assert.match(texto.stdout.toString(),/001/);assert.match(texto.stdout.toString(),/002/);assert.doesNotMatch(texto.stdout.toString(),/003|004|099/);
+     const individual=await consultar('/descargar',{dni:'12345678',numeroSerie:2});assert.equal(individual.status,200);assert.match(individual.headers.get('content-disposition'),/serie-2.pdf/);await individual.arrayBuffer();
+   } finally {
+     for(const sorteo of ids)await fetch(base+'/sorteos/'+sorteo.id,{method:'DELETE',headers:{Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})}});
+     await prisma.participante.deleteMany({where:{id:{in:participantes.map(p=>p.id)}}});
+   }
+ });
  await t.test('Upgrade 101 y RESYNC con todos los campos persistidos',async()=>{
    const ws=new WebSocket(base.replace('http','ws')+'/ws?sorteo='+evento.linkToken);sockets.add(ws);
    const opened=once(ws,'open');

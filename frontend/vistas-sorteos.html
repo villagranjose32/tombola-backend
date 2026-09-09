@@ -152,7 +152,7 @@
   .password-wrap{position:relative}.password-wrap input{padding-right:48px}.password-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:36px;display:grid;place-items:center;background:transparent;border:0;color:var(--paper);cursor:pointer}.password-eye svg{width:22px;height:22px}.password-eye[aria-pressed="false"] .eye-slash{display:none}
   #tabs{position:sticky;top:0;z-index:40;background:var(--ink)}
 </style>
-<link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script></head>
+<link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script><script src="/descarga-dni.js"></script></head>
 <body>
 
 <div class="marquee-bar"></div>
@@ -169,7 +169,7 @@
   <button data-view="crear"><span class="num">03</span>Crear sorteo</button>
   <button data-view="tablero"><span class="num">04</span>Tablero (rifa)</button>
   <button data-view="series"><span class="num">05</span>Series de bingo</button>
-  <button data-view="carton"><span class="num">06</span>Descargar mi serie</button>
+  <button data-view="carton"><span class="num">06</span>Descargar mis cartones</button>
   <button data-view="resultado"><span class="num">07</span>Resultado</button>
   <button data-view="vivo"><span class="num">08</span>Sorteo en vivo</button>
 </nav>
@@ -321,22 +321,13 @@
   <section class="view" id="v-carton">
     <div class="view-head">
       <div class="eyebrow">Vista · Público, sin cuenta</div>
-      <h1 class="view-title">Descargar mi serie</h1>
-      <div class="view-desc">Ingresá el link del sorteo y el número de tu serie para ver los cartones y descargarlos en PDF.</div>
+      <h1 class="view-title">Descargar mis cartones</h1>
+      <div class="view-desc">Ingresá el enlace del sorteo y el DNI del titular para consultar todas sus series confirmadas y descargar los cartones.</div>
     </div>
-    <div class="panel" style="margin-bottom:14px;">
-      <div class="form-grid">
-        <div class="field"><label>Link de ingreso</label><input id="miSerieToken" type="text" placeholder="Pegá el enlace del sorteo"></div>
-        <div class="field"><label>Número de serie</label><input id="miSerieNumero" type="number" min="1" step="1" placeholder="ej: 12"></div>
-      </div>
-      <div id="miSerieMsg" style="margin-top:10px;"></div>
-      <div class="row" style="margin-top:10px; justify-content:flex-start; gap:10px;">
-        <button class="btn btn-primary" id="btnCargarMiSerie">Cargar mi serie</button>
-        <button class="btn btn-ghost" id="btnDescargarPdf" style="display:none;">Descargar serie (PDF)</button>
-        <button class="btn btn-ghost" id="btnCompartirSerie">Compartir enlace de descarga</button>
-      </div>
+    <div class="panel">
+      <div class="field"><label for="miSerieToken">Enlace del sorteo</label><input id="miSerieToken" type="text" placeholder="Pegá el enlace del sorteo"></div>
+      <div id="descargaDni"></div>
     </div>
-    <div id="miSerieCartones"></div>
   </section>
 
   <!-- 07 RESULTADO -->
@@ -979,16 +970,7 @@ async function cambiarEstadoSerie(numero, estado) {
 }
 
 /* ================== 06 DESCARGAR MI SERIE ================== */
-document.getElementById('btnCargarMiSerie').addEventListener('click', cargarMiSerie);
-document.getElementById('btnCompartirSerie').addEventListener('click', function () {
-  const token = obtenerTokenSorteo(document.getElementById('miSerieToken').value);
-  const numero = Number(document.getElementById('miSerieNumero').value);
-  if (!token || !Number.isInteger(numero) || numero < 1) {
-    document.getElementById('miSerieMsg').innerHTML = banner('err', 'Completá el enlace del sorteo y el número de serie antes de compartir.');
-    return;
-  }
-  copiarTexto(urlDescargaSerie(token, numero), this);
-});
+DescargaDni.montar(document.getElementById('descargaDni'), API, () => obtenerTokenSorteo(document.getElementById('miSerieToken').value));
 function obtenerTokenSorteo(valor) {
   const texto = valor.trim();
   if (!texto) return '';
@@ -999,34 +981,6 @@ function obtenerTokenSorteo(valor) {
     return texto;
   }
 }
-document.getElementById('btnDescargarPdf').addEventListener('click', () => {
-  const token = obtenerTokenSorteo(document.getElementById('miSerieToken').value);
-  const numeroSerie = Number(document.getElementById('miSerieNumero').value);
-  window.open(`${API}/s/${encodeURIComponent(token)}/mi-serie/descargar?numeroSerie=${numeroSerie}`, '_blank');
-});
-
-async function cargarMiSerie() {
-  const token = obtenerTokenSorteo(document.getElementById('miSerieToken').value);
-  const numeroSerie = Number(document.getElementById('miSerieNumero').value);
-  const msg = document.getElementById('miSerieMsg');
-  const cont = document.getElementById('miSerieCartones');
-  msg.innerHTML = ''; cont.innerHTML = '';
-  document.getElementById('btnDescargarPdf').style.display = 'none';
-  if (!token || !Number.isInteger(numeroSerie) || numeroSerie < 1) { msg.innerHTML = banner('err', 'Completá el link de ingreso y un número de serie válido'); return; }
-  try {
-    const data = await api(`/s/${encodeURIComponent(token)}/mi-serie?numeroSerie=${numeroSerie}`);
-    document.getElementById('btnDescargarPdf').style.display = 'inline-block';
-    cont.innerHTML = `<div class="mono muted" style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">
-        Serie ${String(data.numeroSerie).padStart(3, '0')} · ${data.cantidadCartones} cartones
-      </div><div class="serie-cards">` +
-      data.cartones.map((c) => `
-        <div class="bingo-card">
-          <div class="card-head"><span class="brand">BINGO VIRTUAL</span><span class="id">CARTÓN ${c.posicion}/${data.cantidadCartones}</span></div>
-          <div class="cells">${c.contenido.flat().map((v) => `<div class="cell ${v === null ? 'blank' : ''}">${v ?? ''}</div>`).join('')}</div>
-        </div>`).join('') + `</div>`;
-  } catch (e) { msg.innerHTML = banner('err', e.message); }
-}
-
 /* ================== 07 RESULTADO ================== */
 document.getElementById('btnVerResultado').addEventListener('click', verResultado);
 async function verResultado() {
@@ -1122,9 +1076,7 @@ if (tokenPublico) {
   document.getElementById('tabs').style.display = 'none';
   if (tipoPublico === 'BINGO' && seriePublica) {
     document.getElementById('miSerieToken').value = tokenPublico;
-    document.getElementById('miSerieNumero').value = seriePublica;
     irATab('carton');
-    cargarMiSerie();
   } else if (tipoPublico === 'BINGO') {
     document.getElementById('seriesToken').value = tokenPublico;
     irATab('series');

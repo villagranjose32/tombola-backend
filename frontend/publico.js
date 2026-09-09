@@ -90,23 +90,10 @@
       grid.append(boton);
     }
   }
+  let consultaDni;
   function prepararDescarga() {
-    $('contenido').innerHTML = `<form id="formSerie"><label>Número de serie<input id="serie" type="number" min="1" step="1" required value="${escape(numeroSerie)}"></label><button>Consultar mi serie</button></form><div id="cartones"></div>`;
-    $('formSerie').onsubmit = event => {
-      event.preventDefault();
-      numeroSerie = $('serie').value;
-      history.replaceState(null, '', enlace('/descargar-serie.html', numeroSerie));
-      cargar();
-    };
-  }
-  async function descarga() {
-    $('cartones').replaceChildren();
-    if (!numeroSerie) { $('mensaje').textContent = 'Ingresá tu número de serie. La descarga se habilita después de confirmar el pago.'; return; }
-    if (!Number.isInteger(Number(numeroSerie)) || Number(numeroSerie) < 1) throw new Error('Ingresá un número de serie válido.');
-    const data = await api(`${ruta}/mi-serie?numeroSerie=${encodeURIComponent(numeroSerie)}`);
-    $('mensaje').textContent = `Serie ${data.numeroSerie} confirmada.`;
-    const pdf = `${apiBase}${ruta}/mi-serie/descargar?numeroSerie=${encodeURIComponent(numeroSerie)}`;
-    $('cartones').innerHTML = `<div class="acciones"><a class="enlace" href="${escape(pdf)}" target="_blank" rel="noopener">Descargar PDF</a></div><div class="cartones">${data.cartones.map(c => `<article class="carton"><h2>Cartón ${escape(c.posicion)}</h2><div class="celdas">${c.contenido.flat().map(n => `<div class="celda ${n === null ? 'vacia' : ''}">${escape(n)}</div>`).join('')}</div></article>`).join('')}</div>`;
+    $('mensaje').textContent = '';
+    consultaDni = DescargaDni.montar($('contenido'), apiBase, () => token);
   }
   async function resultado() {
     const data = await api(params.get('evento') === '1' ? `/vivo/${encodeURIComponent(token)}/resultados` : ruta + '/resultado');
@@ -122,7 +109,7 @@
   async function cargar() {
     if (cargando) return;
     cargando = true;
-    try { await (vista === 'descarga' ? descarga() : vista === 'resultado' ? resultado() : tablero()); }
+    try { await (vista === 'descarga' ? consultaDni.buscar() : vista === 'resultado' ? resultado() : tablero()); }
     catch (error) { $('mensaje').textContent = error.message; }
     finally { cargando = false; }
   }
@@ -137,7 +124,7 @@
   $('compartir').onclick = () => compartir(enlace(location.pathname, vista === 'descarga' ? numeroSerie : null));
   $('actualizar').onclick = cargar;
   if (vista === 'descarga') prepararDescarga();
-  cargar();
+  if (vista !== 'descarga') cargar();
   // Actualiza disponibilidad y pagos aunque se haya interrumpido la conexión.
   const timer = setInterval(() => {
     if (!document.hidden && !$('reserva').open && ['tablero', 'resultado'].includes(vista)) cargar();
