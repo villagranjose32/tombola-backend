@@ -322,3 +322,20 @@ src/
 - Subir el motor de sorteo a la versión "semilla comprometida antes del
   cierre" (hash publicado antes de sortear + dato público verificable)
   para sorteos con premios grandes.
+
+### Página pública unificada
+
+El enlace `/tablero-publico.html?sorteo=TOKEN` reúne la compra o inscripción,
+la consulta de series por DNI, los resultados y el acceso al bolillero vinculado.
+El vivo se muestra dentro de la página al presionar **Ingresar al vivo**. Si todavía
+no existe un evento vinculado, se informa que no comenzó. Los enlaces anteriores
+siguen disponibles para quienes ya los guardaron.
+
+En **Mis sorteos → Fotos de premios y cuenta regresiva**, el organizador puede
+agregar o quitar hasta cuatro imágenes y configurar una fecha de inicio opcional.
+Las fotos se reducen en el navegador y se guardan con la presentación en `config`,
+sin migraciones ni almacenamiento externo. La fecha usa la zona horaria del navegador;
+la cuenta regresiva es informativa y no inicia el bolillero ni cierra las ventas.
+
+Verificación: `npm run build`, `node --test tests/presentacion.test.cjs` y
+`node tests/publico-unificado-browser.cjs` (requiere Chromium).

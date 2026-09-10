@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Elegí tu número o serie · Bingo Virtual</title><link rel="stylesheet" href="/publico.css"><script src="/publico.js" defer></script><link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script></head>
+<title>Sorteo · Bingo Virtual</title><link rel="stylesheet" href="/publico.css"><script src="/descarga-dni.js"></script><script src="/publico.js" defer></script><link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script></head>
 <body data-vista="tablero"><main><header><p>BINGO VIRTUAL</p><h1 id="titulo">Elegí tu número o serie</h1><p id="descripcion"></p></header>
 <div class="acciones"><button id="compartir" hidden>Compartir enlace</button><button id="actualizar" hidden>Actualizar</button></div>
-<p id="mensaje" role="status">Cargando...</p><div id="comprobante"></div><section id="contenido"></section>
+<section id="premios"></section><p id="cuentaRegresiva" role="timer"></p><p id="mensaje" role="status">Cargando...</p><div id="comprobante"></div><section id="contenido"></section>
 <dialog id="reserva"><form id="formReserva"><h2 id="reservaTitulo"></h2>
 <label>Nombre y apellido<input name="nombre" required minlength="3" maxlength="120" autocomplete="name"></label>
 <label>DNI<input name="dni" required inputmode="numeric" pattern="[0-9]{7,8}" minlength="7" maxlength="8" placeholder="Sin puntos" aria-describedby="dniAyuda"></label><p id="dniAyuda">Usá los datos del titular. Al cobrar el premio deberá presentar su DNI.</p>

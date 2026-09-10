@@ -14,6 +14,7 @@ import { eventosEnVivoRouter, eventosEnVivoPublicoRouter } from "./routes/evento
 
 const app = express();
 app.use(cors());
+app.use("/sorteos/:id/presentacion", express.json({ limit: "4mb" }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

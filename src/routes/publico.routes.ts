@@ -32,6 +32,13 @@ publicoRouter.get(
   asyncHandler(async (req, res) => {
     const sorteo = await obtenerSorteoPorToken(req.params.token);
     const ahora = new Date();
+    const presentacion = (sorteo.config as any).presentacion || { inicioProgramado: null, imagenesPremios: [] };
+    const evento = await prisma.eventoEnVivo.findFirst({
+      where: { sorteoBingoId: sorteo.id }, orderBy: { creadoEn: "desc" },
+      select: { linkToken: true, estado: true },
+    });
+    const publico = { presentacion, enVivo: evento };
+    res.set("Cache-Control", "no-store");
 
     if (sorteo.tipo === "RIFA") {
       const numeros = await prisma.numero.findMany({
@@ -44,7 +51,7 @@ publicoRouter.get(
         // si la reserva venció, se muestra libre aunque el job de limpieza no haya corrido todavía (chequeo perezoso)
         estado: n.estado === "RESERVADO" && n.reservadoHasta && n.reservadoHasta < ahora ? "LIBRE" : n.estado,
       }));
-      return res.json({ tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, fechaCierre: sorteo.fechaCierre, tablero });
+      return res.json({ ...publico, tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, fechaCierre: sorteo.fechaCierre, tablero });
     }
 
     if (sorteo.tipo === "BINGO") {
@@ -58,12 +65,12 @@ publicoRouter.get(
         cantidadCartones: s.cantidadCartones,
         estado: s.estado === "RESERVADO" && s.reservadoHasta && s.reservadoHasta < ahora ? "LIBRE" : s.estado,
       }));
-      return res.json({ tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, fechaCierre: sorteo.fechaCierre, tablero });
+      return res.json({ ...publico, tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, fechaCierre: sorteo.fechaCierre, tablero });
     }
 
     // SORTEO_SIMPLE
     const cantidadInscriptos = await prisma.inscripcion.count({ where: { sorteoId: sorteo.id, verificado: true } });
-    res.json({ tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, fechaCierre: sorteo.fechaCierre, cantidadInscriptos });
+    res.json({ ...publico, tipo: sorteo.tipo, titulo: sorteo.titulo, descripcion: sorteo.descripcion, estado: sorteo.estado, fechaCierre: sorteo.fechaCierre, cantidadInscriptos });
   })
 );
 

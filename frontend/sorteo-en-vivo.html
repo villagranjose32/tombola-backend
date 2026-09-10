@@ -399,11 +399,14 @@
     document.getElementById('verificarSerieBox').style.display = estado?.sorteoBingoId ? 'block' : 'none';
     document.getElementById('btnExtraer').disabled = estado?.estado === 'FINALIZADO';
     document.getElementById('btnExtraer').textContent = estado?.estado === 'PAUSADO' ? 'Reanudar extracción' : 'Extraer bolilla';
-    const enlaceEspectador = sorteoToken
+    const bingoPublico = sorteosGuardados.find(s => s.id === estado?.sorteoBingoId);
+    const enlaceEspectador = bingoPublico?.linkToken
+      ? `${window.location.origin}/tablero-publico.html?sorteo=${encodeURIComponent(bingoPublico.linkToken)}`
+      : sorteoToken
       ? `${window.location.origin}${window.location.pathname}?modo=espectador&sorteo=${encodeURIComponent(sorteoToken)}`
       : '';
     document.getElementById('linkCompartir').innerHTML = enlaceEspectador
-      ? `Link para espectador:<br><a href="${enlaceEspectador}" target="_blank" style="color:inherit;word-break:break-all">${enlaceEspectador}</a>`
+      ? `Link para espectador:<br><a href="${enlaceEspectador}" style="color:inherit;word-break:break-all">${enlaceEspectador}</a>`
       : '';
     construirCage();
     if (sorteoToken) conectarWs(sorteoToken);
@@ -479,6 +482,9 @@
     const resultados = document.getElementById('enlaceResultados');
     resultados.hidden = false;
     resultados.href = '/resultado-publico.html?evento=1&sorteo=' + encodeURIComponent(token);
+    if (new URLSearchParams(location.search).get('integrado') === '1' && window.parent !== window) {
+      resultados.onclick = event => { event.preventDefault(); window.parent.document.getElementById('verResultados')?.click(); };
+    }
     liveSync = new LiveSync({
       baseUrl: API, token,
       onStatus: ({text, stale}) => {

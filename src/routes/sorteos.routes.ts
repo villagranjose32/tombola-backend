@@ -92,6 +92,25 @@ async function obtenerSorteoPropio(sorteoId: string, organizadorId: string) {
   return sorteo;
 }
 
+// Presentación pública: se conserva junto a la configuración del sorteo.
+const presentacionSchema = z.object({
+  inicioProgramado: z.string().datetime().nullable(),
+  imagenesPremios: z.array(z.string().max(850000).regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/, "Imagen inválida")).max(4),
+});
+sorteosRouter.patch("/:id/presentacion", asyncHandler(async (req, res) => {
+  const presentacion = presentacionSchema.parse(req.body);
+  const sorteo = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM sorteos WHERE id = ${req.params.id} FOR UPDATE`;
+    const actual = await tx.sorteo.findUnique({ where: { id: req.params.id } });
+    if (!actual) throw new HttpError(404, "Sorteo no encontrado");
+    if (actual.organizadorId !== req.usuario!.sub) throw new HttpError(403, "Ese sorteo no es tuyo");
+    return tx.sorteo.update({ where: { id: actual.id }, data: {
+      config: { ...(actual.config as Record<string, any>), presentacion },
+    } });
+  });
+  res.json(sorteo);
+}));
+
 // Elimina el sorteo y sus datos asociados de forma atómica, conservando los titulares.
 sorteosRouter.delete("/:id", asyncHandler(async (req, res) => {
   await prisma.$transaction(async tx => {

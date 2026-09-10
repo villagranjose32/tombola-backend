@@ -1,0 +1,72 @@
+// Prueba de la vista real en Chromium mediante CDP, con servidor de sala controlado.
+const assert = require('node:assert/strict');
+const express = require('express');
+const http = require('node:http');
+const {once} = require('node:events');
+const {spawn} = require('node:child_process');
+const {mkdtempSync} = require('node:fs');
+const {rm} = require('node:fs/promises');
+const {tmpdir} = require('node:os');
+const path = require('node:path');
+const WebSocket = require('ws');
+let state = {salaId:'room',secuencia:5,numeroActual:5,numerosExtraidos:[1,2,3,4,5],bolillas:[1,2,3,4,5],ronda:0,
+ modo:'BINGO',titulo:'Bingo de prueba',rangoMax:90,estado:'EN_CURSO',conteos:{},sorteoBingoId:null,timestamp:new Date().toISOString()};
+const app = express();app.use(express.json());let registrations=0,lastClaim=null;
+const testCard={id:'card-2',posicion:2,contenido:[[1,2,3,4,5,null,null,null,null],[6,7,8,9,10,null,null,null,null],[11,12,13,14,15,null,null,null,null]]};
+app.post('/auth/registro',(_q,r)=>{registrations++;r.json({mensaje:'Cuenta creada'});});
+app.get('/auth/me',(_q,r)=>r.json({id:'org',nombre:'Prueba',email:'prueba@example.test',rol:'ORGANIZADOR',estado:'APROBADO'}));
+app.get('/sorteos',(_q,r)=>r.json([]));app.get('/eventos-en-vivo',(_q,r)=>r.json([]));
+app.get('/vivo/:token',(_q,r)=>r.set('Cache-Control','no-store').json({type:'STATE_SNAPSHOT',...state}));
+let eventoPublico = null;
+app.get('/s/publico',(_q,r)=>r.json({tipo:'BINGO',titulo:'Sorteo unificado',estado:'ACTIVO',tablero:[{numero:1,estado:'LIBRE'}],enVivo:eventoPublico,presentacion:{inicioProgramado:new Date(Date.now()+3600000).toISOString(),imagenesPremios:['data:image/png;base64,iVBORw0KGgo=']}}));
+app.get('/s/publico/resultado',(_q,r)=>r.json({tipo:'BINGO',cantos:[]}));
+app.get('/s/publico/organizador',(_q,r)=>r.json({nombre:'Organizador'}));
+app.use(express.static(path.resolve(__dirname,'../frontend')));
+(async()=>{
+ const server = http.createServer(app);const wss = new WebSocket.WebSocketServer({server,path:'/ws'});let connections=0;
+ wss.on('connection',ws=>{connections++;ws.on('message',raw=>{const msg=JSON.parse(raw);if(msg.type==='RESYNC')ws.send(JSON.stringify({type:'STATE_SNAPSHOT',...state}));if(msg.type==='PING')ws.send(JSON.stringify({type:'PONG'}));});});
+ server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port;
+ const profile = mkdtempSync(path.join(tmpdir(),'bingo-live-'));
+ const chrome=spawn(process.env.CHROMIUM_PATH || '/usr/bin/chromium',['--headless','--no-sandbox','--disable-gpu','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:['ignore','ignore','pipe']});
+ let ws;
+ try {
+ const debuggerUrl=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(new Error('Chromium no inició')),15000);chrome.stderr.on('data',chunk=>{output+=chunk;const m=output.match(/DevTools listening on (ws:\/\/[^\s]+)/);if(m){clearTimeout(timer);resolve(m[1]);}});chrome.on('error',reject);});
+ const debugBase=new URL(debuggerUrl).origin.replace('ws:','http:');const targets=await (await fetch(debugBase+'/json')).json();
+ ws=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await once(ws,'open');let id=0;const calls=new Map(),errors=[];
+ ws.on('message',raw=>{const m=JSON.parse(raw);if(m.id){calls.get(m.id)?.(m);calls.delete(m.id);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);});
+ const cmd=(method,params={})=>new Promise((resolve,reject)=>{const key=++id;calls.set(key,m=>m.error?reject(m.error):resolve(m.result));ws.send(JSON.stringify({id:key,method,params}));});
+ const evaluate=async expression=>{const r=await cmd('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const wait=async expr=>{for(let i=0;i<100;i++){if(await evaluate(expr))return;await new Promise(r=>setTimeout(r,100));}throw new Error('Timeout '+expr);};
+ await cmd('Page.enable');await cmd('Runtime.enable');await cmd('Network.enable');
+ await cmd('Page.addScriptToEvaluateOnNewDocument',{source:`window.locuciones=[];window.speechSynthesis.speak=u=>window.locuciones.push(u.text);window.speechSynthesis.cancel=()=>{};`});
+ await cmd('Page.navigate',{url:base+'/tablero-publico.html?sorteo=publico'});
+ await wait('document.querySelector(".item") && document.querySelector("#cuentaRegresiva").textContent.includes("comienza en")');
+ assert.equal(await evaluate('document.querySelectorAll("#premios img").length'),1);
+ await evaluate('document.getElementById("verVivo").click()');
+ await wait('document.getElementById("mensaje").textContent.includes("aún no ha comenzado")');
+ assert.equal(await evaluate('document.querySelectorAll("iframe").length'),0);
+ await evaluate('document.getElementById("verResultados").click()');
+ await wait('document.getElementById("mensaje").textContent === "No hay ganadores aún."');
+ await evaluate('document.getElementById("verSeries").click()');
+ await wait('document.querySelector(".consulta-dni")');
+ await evaluate('document.getElementById("verCompra").click()');
+ await wait('document.querySelector(".item")');
+ await evaluate('document.querySelector(".item").click()');
+ assert.equal(await evaluate('document.getElementById("reserva").open'),true);
+ await evaluate('document.getElementById("cancelar").click()');
+ eventoPublico={linkToken:'token',estado:'EN_CURSO'};
+ await evaluate('document.getElementById("verVivo").click()');
+ await wait('document.querySelector("iframe")?.contentDocument.getElementById("currentBall")?.textContent === "05"');
+ assert.equal(await evaluate('location.pathname'),'/tablero-publico.html');
+ await evaluate('document.querySelector("iframe").contentDocument.getElementById("enlaceResultados").click()');
+ await wait('document.getElementById("mensaje").textContent === "No hay ganadores aún."');
+ assert.equal(await evaluate('document.querySelectorAll("iframe").length'),0);
+ assert.equal((await (await fetch(debugBase+'/json')).json()).filter(t=>t.type==='page').length,1);
+ console.log('OK: compra, fotos, cuenta regresiva, series, estados vacíos y vivo/resultados sin cambiar de página ni abrir pestañas.');
+ assert.deepEqual(errors,[]);
+ } finally {
+   if(ws)ws.close();chrome.kill();await once(chrome,'exit');
+   for(const client of wss.clients)client.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));
+   await rm(profile,{recursive:true,force:true,maxRetries:20,retryDelay:250});
+ }
+})().catch(error=>{console.error(error);process.exitCode=1});

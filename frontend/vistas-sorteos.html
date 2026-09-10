@@ -395,17 +395,17 @@ function banner(tipo, msg) { return `<div class="banner ${tipo}">${escapeHtml(ms
 function urlPublicaSorteo(s) {
   const url = new URL('/tablero-publico.html', window.location.origin);
   url.searchParams.set('sorteo', s.linkToken);
-  url.searchParams.set('tipo', s.tipo);
+
   return url.toString();
 }
 function urlDescargaSerie(token, numeroSerie) {
-  const url = new URL('/descargar-serie.html', window.location.origin);
+  const url = new URL('/tablero-publico.html', window.location.origin);
   url.searchParams.set('sorteo', token);
-  if (numeroSerie) url.searchParams.set('serie', numeroSerie);
+
   return url.toString();
 }
 function urlResultadoPublico(token) {
-  const url = new URL('/resultado-publico.html', window.location.origin);
+  const url = new URL('/tablero-publico.html', window.location.origin);
   url.searchParams.set('sorteo', token);
   return url.toString();
 }
@@ -575,7 +575,7 @@ function abrirReservaSerie(token, numeroSerie) {
 }
 
 function verMiSerieAhora(token, numeroSerie) {
-  window.open(urlDescargaSerie(token, numeroSerie), '_blank', 'noopener');
+  window.location.href = urlDescargaSerie(token, numeroSerie);
 }
 
 function abrirParticipar(token) {
@@ -681,20 +681,64 @@ function renderSorteoCard(s) {
   acciones += `<button class="btn btn-danger btn-sm" onclick="eliminarSorteo('${s.id}', this)">Eliminar</button>`;
   const enlacePublico = s.linkToken ? urlPublicaSorteo(s) : '';
   const datosPublicos = s.linkToken ? `
-    <div class="muted" style="font-size:11px;margin-top:10px;">Enlace para participar</div>
+    <div class="muted" style="font-size:11px;margin-top:10px;">Enlace único del sorteo</div>
     <div class="meta" style="overflow-wrap:anywhere;">${escapeHtml(enlacePublico)}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px;">
-      <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace público</a>
+      <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}">Abrir enlace público</a>
       <button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlPublicaSorteo(misSorteosCache.find(x => x.id === '${s.id}')), this)">Copiar enlace</button>
-      ${s.tipo === 'BINGO' ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlDescargaSerie(s.linkToken))}" target="_blank" rel="noopener">Abrir descarga de series</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlDescargaSerie('${s.linkToken}'), this)">Compartir descarga</button>` : ''}
-      ${(s.estado === 'SORTEADO' || s.tipo === 'BINGO') ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(urlResultadoPublico(s.linkToken))}" target="_blank" rel="noopener">Abrir resultado público</a><button class="btn btn-ghost btn-sm" onclick="copiarTexto(urlResultadoPublico('${s.linkToken}'), this)">Compartir resultado</button>` : ''}
     </div>` : `<div class="meta">Todavía no tiene enlace público</div>`;
   return `<div class="sorteo-card">
     <div class="tipo">${tipoLabel}</div>
     <h3>${escapeHtml(s.titulo)}</h3>
     ${datosPublicos}
+    <details><summary>Fotos de premios y cuenta regresiva</summary>
+      <form onsubmit="guardarPresentacion(event, '${s.id}')">
+        <label>Inicio programado (opcional)<input type="datetime-local" name="inicio" value="${fechaLocal(s.config?.presentacion?.inicioProgramado)}"></label>
+        <p>La cuenta regresiva es informativa. El organizador inicia el vivo.</p>
+        <label>Agregar fotos de premios (máximo 4, JPG, PNG o WebP)<input type="file" name="fotos" accept="image/jpeg,image/png,image/webp" multiple></label>
+        <div>${(s.config?.presentacion?.imagenesPremios || []).map((src, i) => `<label style="display:inline-block"><img src="${escapeHtml(src)}" alt="Premio ${i + 1}" style="width:90px;height:90px;object-fit:contain"><input type="checkbox" name="quitar" value="${i}">Quitar</label>`).join('')}</div>
+        <button class="btn btn-primary btn-sm" type="submit">Guardar presentación</button><p role="status"></p>
+      </form>
+    </details>
     <div class="row"><span class="chip ${chipClass}">${s.estado}</span>${acciones}</div>
   </div>`;
+}
+
+function fechaLocal(valor) {
+  if (!valor) return '';
+  const fecha = new Date(valor);
+  return new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+async function guardarPresentacion(event, id) {
+  event.preventDefault();
+  const form = event.target, boton = event.submitter, aviso = form.querySelector('[role="status"]');
+  boton.disabled = true;
+  try {
+    const sorteo = misSorteosCache.find(s => s.id === id);
+    const quitar = new FormData(form).getAll('quitar').map(Number);
+    const imagenesPremios = (sorteo.config?.presentacion?.imagenesPremios || []).filter((_, i) => !quitar.includes(i));
+    const archivos = Array.from(form.elements.fotos.files);
+    if (imagenesPremios.length + archivos.length > 4) throw new Error('Podés guardar hasta 4 fotos. Quitá alguna para agregar otra.');
+    for (const archivo of archivos) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) throw new Error('Usá imágenes JPG, PNG o WebP.');
+      if (archivo.size > 15 * 1024 * 1024) throw new Error('Cada archivo debe pesar menos de 15 MB.');
+      const bitmap = await createImageBitmap(archivo);
+      const escala = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * escala)); canvas.height = Math.max(1, Math.round(bitmap.height * escala));
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+      const imagen = canvas.toDataURL('image/webp', 0.8);
+      if (imagen.length > 850000) throw new Error('La foto es demasiado grande. Elegí una imagen más pequeña.');
+      imagenesPremios.push(imagen);
+    }
+    await api('/sorteos/' + id + '/presentacion', { method: 'PATCH', token: orgToken, body: {
+      imagenesPremios, inicioProgramado: form.elements.inicio.value ? new Date(form.elements.inicio.value).toISOString() : null,
+    } });
+    aviso.textContent = 'Presentación guardada.';
+    const actual = misSorteosCache.find(s => s.id === id);
+    actual.config = { ...actual.config, presentacion: { imagenesPremios, inicioProgramado: form.elements.inicio.value ? new Date(form.elements.inicio.value).toISOString() : null } };
+    await cargarMisSorteos();
+  } catch (error) { aviso.textContent = error.message; }
+  finally { boton.disabled = false; }
 }
 
 async function eliminarSorteo(id, boton) {
@@ -804,7 +848,7 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
     msg.innerHTML = banner('ok', 'Sorteo publicado. Ya podés compartir el enlace para participar.') +
       `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
         <button class="btn btn-ghost btn-sm" onclick="${jump}">Ir al tablero público</button>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}" target="_blank">Abrir enlace para clientes</a>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(enlacePublico)}">Abrir enlace para clientes</a>
         <button class="btn btn-ghost btn-sm" onclick="copiarTexto('${escapeHtml(enlacePublico)}', this)">Copiar enlace</button>
       </div>`;
     cargarMisSorteos();
