@@ -353,3 +353,17 @@ archivos, se pueden descargar las imágenes y adjuntarlas manualmente.
 La captura usa html2canvas 1.4.1, distribuido localmente en `frontend/vendor`
 con su licencia MIT; no necesita un CDN en producción.
 Prueba: `node tests/compartir-resultados-browser.cjs` (Chromium; envío simulado).
+
+### Validación del generador de cartones
+
+`npm run test:cartones` verifica 8.000 series de 3 a 6 cartones: cinco números
+por fila, quince por cartón, columnas ordenadas dentro de su rango, sin números
+repetidos en la serie y cobertura completa de 1 a 90 en las series de seis.
+El generador corregido distribuye una tira completa antes de seleccionar los
+cartones solicitados y rechaza cualquier distribución incompleta.
+
+Este cambio se aplica a las nuevas generaciones. Los cartones persistidos y
+los PDF ya entregados no se modifican. Una misma semilla produce resultados
+reproducibles con esta versión, pero no necesariamente los mismos cartones
+que con el generador anterior; para sorteos existentes se conservan los datos
+almacenados, sin regenerarlos silenciosamente.

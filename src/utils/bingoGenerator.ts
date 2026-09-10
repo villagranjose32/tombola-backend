@@ -50,95 +50,52 @@ function rngDesdeSemilla(semilla: number) {
   };
 }
 
-/**
- * Distribuye cuántas celdas de cada fila corresponden a cada columna,
- * para una serie de `cantidadCartones` cartones. Reparte los 15
- * números de cada cartón en 9 columnas (cada columna con 1, 2 o 3
- * números en ESE cartón), y entre todos los cartones de la serie
- * nunca se repite un número.
- */
+/** Construye una tira completa de seis cartones y devuelve los solicitados. */
 function generarSerie(cantidadCartones: number, seedInt: number): GrillaCarton[] {
+  if (!Number.isInteger(cantidadCartones) || cantidadCartones < 3 || cantidadCartones > 6) {
+    throw new Error("La serie debe tener entre 3 y 6 cartones");
+  }
   const rng = rngDesdeSemilla(seedInt);
+  const pools = RANGOS_COLUMNA.map(([min, max]) =>
+    shuffle(Array.from({ length: max - min + 1 }, (_, i) => min + i), rng)
+  );
 
-  // Pool de números disponibles por columna (sin usar todavía en esta serie)
-  const pools: number[][] = RANGOS_COLUMNA.map(([min, max]) => {
-    const nums: number[] = [];
-    for (let n = min; n <= max; n++) nums.push(n);
-    return shuffle(nums, rng);
+  // Una celda por columna en cada cartón. Los 36 números restantes
+  // se asignan a los cartones con menos números, con desempate aleatorio.
+  // Cada columna tiene entre 3 y 5 extras, para cartones distintos.
+  // Así los seis totales quedan exactamente en 15 sin agotar un pool.
+  const cupos = Array.from({ length: 6 }, () => Array(9).fill(1) as number[]);
+  const totales = Array(6).fill(9) as number[];
+  for (const col of shuffle(Array.from({ length: 9 }, (_, i) => i), rng)) {
+    const candidatos = shuffle([0, 1, 2, 3, 4, 5], rng).sort((a, b) => totales[a] - totales[b]);
+    for (const carton of candidatos.slice(0, pools[col].length - 6)) {
+      cupos[carton][col]++;
+      totales[carton]++;
+    }
+  }
+
+  const cartones = cupos.map(cuposCarton => {
+    const filas: GrillaCarton = Array.from({ length: 3 }, () => Array(9).fill(null));
+    const libres = [5, 5, 5];
+    // Atiende primero las columnas más pobladas y las filas con más
+    // espacio. No se descarta ningún número si una fila ya está llena.
+    const columnas = shuffle(Array.from({ length: 9 }, (_, i) => i), rng)
+      .sort((a, b) => cuposCarton[b] - cuposCarton[a]);
+    for (const col of columnas) {
+      const cantidad = cuposCarton[col];
+      const elegidas = shuffle([0, 1, 2], rng).sort((a, b) => libres[b] - libres[a])
+        .slice(0, cantidad).sort((a, b) => a - b);
+      const numeros = pools[col].splice(0, cantidad).sort((a, b) => a - b);
+      for (const [i, fila] of elegidas.entries()) {
+        if (libres[fila] <= 0 || numeros[i] === undefined) throw new Error("Distribución de cartón inválida");
+        filas[fila][col] = numeros[i];
+        libres[fila]--;
+      }
+    }
+    if (libres.some(cupo => cupo !== 0)) throw new Error("Cada fila debe contener cinco números");
+    return filas;
   });
-
-  const cartones: GrillaCarton[] = [];
-
-  for (let c = 0; c < cantidadCartones; c++) {
-    // 1) decidir cuántos números de este cartón caen en cada columna
-    //    (entre 0 y 3 por columna, sumando 15 en total, sin superar
-    //    lo que queda disponible en el pool de esa columna)
-    const cuposPorColumna = new Array(9).fill(0);
-    let restantes = 15;
-    // primero garantizamos al menos 1 número por columna si alcanza el pool
-    for (let col = 0; col < 9 && restantes > 0; col++) {
-      if (pools[col].length - contarUsados(cartones, col) > 0) {
-        cuposPorColumna[col] = 1;
-        restantes--;
-      }
-    }
-    // repartimos el resto al azar, respetando máximo 3 por columna y disponibilidad
-    let intentos = 0;
-    while (restantes > 0 && intentos < 500) {
-      const col = Math.floor(rng() * 9);
-      const disponibles = pools[col].length - contarUsados(cartones, col) - cuposPorColumna[col];
-      if (cuposPorColumna[col] < 3 && disponibles > 0) {
-        cuposPorColumna[col]++;
-        restantes--;
-      }
-      intentos++;
-    }
-
-    // 2) elegir, para cada columna con cupo, qué números de su pool le tocan a este cartón
-    const numerosPorColumna: number[][] = cuposPorColumna.map((cupo, col) => {
-      const usados = contarUsados(cartones, col);
-      const disponiblesCol = pools[col].slice(usados, usados + cupo);
-      return disponiblesCol.sort((a, b) => a - b); // ascendente dentro de la columna
-    });
-
-    // 3) repartir esos números entre las 3 filas: cada fila necesita
-    //    exactamente 5 números en total, y como máximo 1 número de
-    //    cada columna por fila (así se ve como un cartón real).
-    const filas: FilaCarton[] = [
-      new Array(9).fill(null),
-      new Array(9).fill(null),
-      new Array(9).fill(null),
-    ];
-    const cupoFila = [5, 5, 5];
-
-    for (let col = 0; col < 9; col++) {
-      const nums = numerosPorColumna[col];
-      if (nums.length === 0) continue;
-      // elegimos, entre las filas con cupo disponible, tantas como números tenga la columna
-      const filasDisponibles = shuffle([0, 1, 2], rng).filter((f) => cupoFila[f] > 0);
-      const filasElegidas = filasDisponibles.slice(0, nums.length).sort((a, b) => a - b);
-      // por si el shuffle dejó menos filas disponibles que números (raro, pero por las dudas)
-      const asignables = Math.min(filasElegidas.length, nums.length);
-      for (let i = 0; i < asignables; i++) {
-        filas[filasElegidas[i]][col] = nums[i]; // ya vienen ordenados ascendente
-        cupoFila[filasElegidas[i]]--;
-      }
-    }
-
-    cartones.push(filas);
-  }
-
-  return cartones;
-}
-
-function contarUsados(cartonesPrevios: GrillaCarton[], col: number): number {
-  let usados = 0;
-  for (const carton of cartonesPrevios) {
-    for (const fila of carton) {
-      if (fila[col] !== null) usados++;
-    }
-  }
-  return usados;
+  return cartones.slice(0, cantidadCartones);
 }
 
 /** Genera una serie (N cartones) de forma determinística a partir de una semilla de texto (sorteoId + número de serie), para que sea reproducible/auditable. */
