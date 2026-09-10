@@ -95,8 +95,10 @@ async function obtenerSorteoPropio(sorteoId: string, organizadorId: string) {
 // Presentación pública: se conserva junto a la configuración del sorteo.
 const presentacionSchema = z.object({
   inicioProgramado: z.string().datetime().nullable(),
+  descripcionesPremios: z.array(z.string().trim().max(500)).max(4).optional(),
   imagenesPremios: z.array(z.string().max(850000).regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/, "Imagen inválida")).max(4),
-});
+}).refine(datos => !datos.descripcionesPremios || datos.descripcionesPremios.length === datos.imagenesPremios.length,
+  { message: "Cada descripción debe corresponder a una foto", path: ["descripcionesPremios"] });
 sorteosRouter.patch("/:id/presentacion", asyncHandler(async (req, res) => {
   const presentacion = presentacionSchema.parse(req.body);
   const sorteo = await prisma.$transaction(async tx => {

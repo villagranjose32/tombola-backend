@@ -152,7 +152,7 @@
   .password-wrap{position:relative}.password-wrap input{padding-right:48px}.password-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:36px;display:grid;place-items:center;background:transparent;border:0;color:var(--paper);cursor:pointer}.password-eye svg{width:22px;height:22px}.password-eye[aria-pressed="false"] .eye-slash{display:none}
   #tabs{position:sticky;top:0;z-index:40;background:var(--ink)}
 </style>
-<link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script><script src="/descarga-dni.js"></script></head>
+<link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script><script src="/vendor/html2canvas.min.js"></script><script src="/compartir-resultados.js"></script><script src="/descarga-dni.js"></script></head>
 <body>
 
 <div class="marquee-bar"></div>
@@ -695,8 +695,9 @@ function renderSorteoCard(s) {
       <form onsubmit="guardarPresentacion(event, '${s.id}')">
         <label>Inicio programado (opcional)<input type="datetime-local" name="inicio" value="${fechaLocal(s.config?.presentacion?.inicioProgramado)}"></label>
         <p>La cuenta regresiva es informativa. El organizador inicia el vivo.</p>
-        <label>Agregar fotos de premios (máximo 4, JPG, PNG o WebP)<input type="file" name="fotos" accept="image/jpeg,image/png,image/webp" multiple></label>
-        <div>${(s.config?.presentacion?.imagenesPremios || []).map((src, i) => `<label style="display:inline-block"><img src="${escapeHtml(src)}" alt="Premio ${i + 1}" style="width:90px;height:90px;object-fit:contain"><input type="checkbox" name="quitar" value="${i}">Quitar</label>`).join('')}</div>
+        <label>Agregar fotos de premios (máximo 4, JPG, PNG o WebP)<input type="file" name="fotos" accept="image/jpeg,image/png,image/webp" multiple onchange="prepararDescripcionesPremios(this)"></label>
+        <div class="nuevos-premios"></div>
+        <div>${(s.config?.presentacion?.imagenesPremios || []).map((src, i) => `<div style="display:inline-block;max-width:280px;margin:8px"><img src="${escapeHtml(src)}" alt="Premio ${i + 1}" style="width:90px;height:90px;object-fit:contain"><label>Descripción del premio ${i + 1}<textarea name="descripcionPremio${i}" maxlength="500" rows="3" placeholder="Ej.: Primer premio: bicicleta rodado 29">${escapeHtml(s.config?.presentacion?.descripcionesPremios?.[i] || '')}</textarea></label><label><input type="checkbox" name="quitar" value="${i}">Quitar foto</label></div>`).join('')}</div>
         <button class="btn btn-primary btn-sm" type="submit">Guardar presentación</button><p role="status"></p>
       </form>
     </details>
@@ -704,6 +705,18 @@ function renderSorteoCard(s) {
   </div>`;
 }
 
+function prepararDescripcionesPremios(input) {
+  const contenedor = input.form.querySelector('.nuevos-premios');
+  contenedor.replaceChildren();
+  Array.from(input.files).forEach((archivo, i) => {
+    const label = document.createElement('label');
+    label.textContent = `Descripción de ${archivo.name}`;
+    const campo = document.createElement('textarea');
+    campo.name = `descripcionNueva${i}`; campo.maxLength = 500; campo.rows = 3;
+    campo.placeholder = 'Describí el premio que aparece en esta foto';
+    label.append(campo); contenedor.append(label);
+  });
+}
 function fechaLocal(valor) {
   if (!valor) return '';
   const fecha = new Date(valor);
@@ -717,9 +730,10 @@ async function guardarPresentacion(event, id) {
     const sorteo = misSorteosCache.find(s => s.id === id);
     const quitar = new FormData(form).getAll('quitar').map(Number);
     const imagenesPremios = (sorteo.config?.presentacion?.imagenesPremios || []).filter((_, i) => !quitar.includes(i));
+    const descripcionesPremios = (sorteo.config?.presentacion?.imagenesPremios || []).map((_, i) => form.elements[`descripcionPremio${i}`].value.trim()).filter((_, i) => !quitar.includes(i));
     const archivos = Array.from(form.elements.fotos.files);
     if (imagenesPremios.length + archivos.length > 4) throw new Error('Podés guardar hasta 4 fotos. Quitá alguna para agregar otra.');
-    for (const archivo of archivos) {
+    for (const [i, archivo] of archivos.entries()) {
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) throw new Error('Usá imágenes JPG, PNG o WebP.');
       if (archivo.size > 15 * 1024 * 1024) throw new Error('Cada archivo debe pesar menos de 15 MB.');
       const bitmap = await createImageBitmap(archivo);
@@ -729,13 +743,14 @@ async function guardarPresentacion(event, id) {
       const imagen = canvas.toDataURL('image/webp', 0.8);
       if (imagen.length > 850000) throw new Error('La foto es demasiado grande. Elegí una imagen más pequeña.');
       imagenesPremios.push(imagen);
+      descripcionesPremios.push(form.elements[`descripcionNueva${i}`].value.trim());
     }
     await api('/sorteos/' + id + '/presentacion', { method: 'PATCH', token: orgToken, body: {
-      imagenesPremios, inicioProgramado: form.elements.inicio.value ? new Date(form.elements.inicio.value).toISOString() : null,
+      imagenesPremios, descripcionesPremios, inicioProgramado: form.elements.inicio.value ? new Date(form.elements.inicio.value).toISOString() : null,
     } });
     aviso.textContent = 'Presentación guardada.';
     const actual = misSorteosCache.find(s => s.id === id);
-    actual.config = { ...actual.config, presentacion: { imagenesPremios, inicioProgramado: form.elements.inicio.value ? new Date(form.elements.inicio.value).toISOString() : null } };
+    actual.config = { ...actual.config, presentacion: { imagenesPremios, descripcionesPremios, inicioProgramado: form.elements.inicio.value ? new Date(form.elements.inicio.value).toISOString() : null } };
     await cargarMisSorteos();
   } catch (error) { aviso.textContent = error.message; }
   finally { boton.disabled = false; }
@@ -1040,6 +1055,7 @@ async function verResultado() {
     if (r.tipo === 'BINGO') {
       panel.style.display = 'block';
       panel.innerHTML = Transparencia.resultados(r);
+      CompartirResultados.montar(panel);
       return;
     }
     panel.style.display = 'block';
@@ -1056,6 +1072,7 @@ async function verResultado() {
       <div class="audit-row"><div class="k">Hash publicado</div><div class="v">${r.hashPublicado}</div></div>
       <div class="audit-row"><div class="k">Hash recalculado ahora</div><div class="v">${r.hashRecalculado}</div></div>
     `;
+    CompartirResultados.montar(panel);
   } catch (e) { panel.style.display = 'block'; panel.innerHTML = banner('err', e.message); }
 }
 

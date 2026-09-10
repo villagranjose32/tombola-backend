@@ -20,7 +20,7 @@ const pagos=[];
 const reservas={numeros:'RESERVADO',series:'RESERVADO'};
 app.get('/sorteos/pagos/:tipo',(q,r)=>r.json({tipo:q.params.tipo==='numeros'?'RIFA':'BINGO',titulo:'Pagos',estado:'ACTIVO',tablero:[{valor:1,numero:1,cantidadCartones:1,estado:reservas[q.params.tipo],participante:{nombre:'Titular Prueba',dni:'12345678',telefono:'123456789'}}]}));
 app.patch('/sorteos/pagos/:tipo/:numero',(q,r)=>{pagos.push(q.body);reservas[q.params.tipo]=q.body.estado;r.json({});});
-app.get('/vivo/:token/mi-serie',(q,r)=>r.json({numeroSerie:Number(q.query.numeroSerie),marcas:{},cartones:Array.from({length:6},(_,i)=>({...testCard,id:'card-'+i,posicion:i+1}))}));
+app.post('/vivo/:token/mis-series',(q,r)=>{assert.deepEqual(q.body,{dni:'12345678'});r.json({series:[1,2].map(numeroSerie=>({numeroSerie,marcas:{},cartones:Array.from({length:6},(_,i)=>({...testCard,id:'card-'+i,posicion:i+1}))}))});});
 app.post('/vivo/:token/cantar',(q,r)=>{lastClaim=q.body;r.json({reclamo:q.body.tipo,numeroSerie:2,numeroCarton:2,carton:testCard,bolillas:state.numerosExtraidos,estadoEvento:'PAUSADO'});});
 app.get('/vivo/:token',(_q,r)=>r.set('Cache-Control','no-store').json({type:'STATE_SNAPSHOT',...state}));
 app.use(express.static(path.resolve(__dirname,'../frontend')));
@@ -91,7 +91,8 @@ app.use(express.static(path.resolve(__dirname,'../frontend')));
  assert.equal(await evaluate('document.getElementById("menuOrganizador").hidden'),true);
  assert.equal(await evaluate('!!document.getElementById("reclamoSerie") || !!document.getElementById("reclamoCarton")'),false);
  assert.equal(await evaluate('document.getElementById("historialCartones").contains(document.getElementById("historial"))'),true);
- for(const n of [1,2]){await evaluate(`document.getElementById('serieReingreso').value='${n}';document.getElementById('btnCargarSerieEspectador').click()`);await wait(`!!document.querySelector('#cartonesEnVivo [data-serie="${n}"]')`);}
+ await evaluate(`document.getElementById('dniReingreso').value='12345678';document.getElementById('btnCargarSerieEspectador').click()`);
+ await wait(`document.querySelectorAll('#cartonesEnVivo [data-serie]').length === 2`);
  await evaluate('document.getElementById("btnCantarBingo").click()');await wait('document.getElementById("reclamoPublico").textContent.includes("Cartón 2")');
  assert.deepEqual(lastClaim,{tipo:'BINGO',numerosSeries:[1,2]});
  console.log('OK: canto sin selectores envía todas las series cargadas y muestra el cartón detectado.');

@@ -339,3 +339,17 @@ la cuenta regresiva es informativa y no inicia el bolillero ni cierra las ventas
 
 Verificación: `npm run build`, `node --test tests/presentacion.test.cjs` y
 `node tests/publico-unificado-browser.cjs` (requiere Chromium).
+
+### Compartir ganadores como imagen
+
+En **Resultado y auditoría**, **Compartir ganadores por WhatsApp** prepara una
+vista previa PNG de los ganadores y los cartones validados, con los números
+resaltados. Excluye los controles, los datos del organizador y la auditoría.
+Agrupa hasta seis ganadores por imagen para conservar la legibilidad.
+El segundo botón abre el menú del dispositivo para elegir WhatsApp y comparte
+únicamente archivos, sin texto ni enlace. Si el navegador no admite compartir
+archivos, se pueden descargar las imágenes y adjuntarlas manualmente.
+
+La captura usa html2canvas 1.4.1, distribuido localmente en `frontend/vendor`
+con su licencia MIT; no necesita un CDN en producción.
+Prueba: `node tests/compartir-resultados-browser.cjs` (Chromium; envío simulado).

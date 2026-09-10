@@ -1,0 +1,76 @@
+// Prueba de la vista real en Chromium mediante CDP, con servidor de sala controlado.
+const assert = require('node:assert/strict');
+const express = require('express');
+const http = require('node:http');
+const {once} = require('node:events');
+const {spawn} = require('node:child_process');
+const {mkdtempSync} = require('node:fs');
+const {rm} = require('node:fs/promises');
+const {tmpdir} = require('node:os');
+const path = require('node:path');
+const WebSocket = require('ws');
+const state = {salaId:'room',secuencia:5,numeroActual:5,numerosExtraidos:[1,2,3,4,5],bolillas:[1,2,3,4,5],ronda:0,
+ modo:'BINGO',titulo:'Bingo de prueba',rangoMax:90,estado:'EN_CURSO',conteos:{},sorteoBingoId:null,timestamp:new Date().toISOString()};
+const app = express();app.use(express.json());let registrations=0;
+const testCard={id:'card-2',posicion:2,contenido:[[1,2,3,4,5,null,null,null,null],[6,7,8,9,10,null,null,null,null],[11,12,13,14,15,null,null,null,null]]};
+app.post('/auth/registro',(_q,r)=>{registrations++;r.json({mensaje:'Cuenta creada'});});
+let eliminados=0;
+app.get('/auth/me',(_q,r)=>r.json({id:'org',nombre:'Ana Pérez',email:'ana@example.test',rol:'ORGANIZADOR',estado:'APROBADO'}));
+app.get('/sorteos',(_q,r)=>r.json(eliminados?[]:[{id:'sorteo-prueba',titulo:'Bingo para eliminar',tipo:'BINGO',estado:'BORRADOR'}]));
+app.delete('/sorteos/sorteo-prueba',(_q,r)=>{eliminados++;r.json({mensaje:'Sorteo eliminado'});});
+let consultaDni=null;
+app.post('/s/:token/mis-series',(q,r)=>{consultaDni=q.body;r.json({titulo:'Bingo DNI',series:q.body.dni==='12345678'?[{numeroSerie:1,nombre:'Ana Pérez',cartones:[testCard]},{numeroSerie:2,nombre:'Ana Pérez',cartones:[testCard]}]:[],pendientes:q.body.dni==='12345678'?[3]:[]});});
+app.get('/vivo/:token',(_q,r)=>r.set('Cache-Control','no-store').json({type:'STATE_SNAPSHOT',...state}));
+const identidad={nombre:'Ana Pérez',dni:'12345678',telefono:'+54 11 12345678'};
+app.get(['/s/:token/organizador','/vivo/:token/organizador'],(_q,r)=>r.json(identidad));
+const cantos=[{tipo:'LINEA',participante:'María Gómez',numeroSerie:2,numeroCarton:2,ronda:0,contenido:testCard.contenido,bolillas:[1,2,3,4,5],cantadoEn:'2026-09-09T15:00:00Z',evento:{titulo:'Bingo prueba'}},{tipo:'BINGO',participante:'Juan López',numeroSerie:3,numeroCarton:1,ronda:0,contenido:testCard.contenido,bolillas:Array.from({length:15},(_,i)=>i+1),cantadoEn:'2026-09-09T15:02:00Z',evento:{titulo:'Bingo prueba'}}];
+app.get(['/s/:token/resultado','/vivo/:token/resultados'],(_q,r)=>r.json({tipo:'BINGO',titulo:'Bingo prueba',cantos}));
+app.use(express.static(path.resolve(__dirname,'../frontend')));
+(async()=>{
+ const server = http.createServer(app);const wss = new WebSocket.WebSocketServer({server,path:'/ws'});
+ wss.on('connection',ws=>{ws.on('message',raw=>{const msg=JSON.parse(raw);if(msg.type==='RESYNC')ws.send(JSON.stringify({type:'STATE_SNAPSHOT',...state}));if(msg.type==='PING')ws.send(JSON.stringify({type:'PONG'}));});});
+ server.listen(0,'127.0.0.1');await once(server,'listening');const base='http://127.0.0.1:'+server.address().port;
+ const profile = mkdtempSync(path.join(tmpdir(),'bingo-live-'));
+ const chrome=spawn(process.env.CHROMIUM_PATH || '/usr/bin/chromium',['--headless','--no-sandbox','--disable-gpu','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{stdio:['ignore','ignore','pipe']});
+ let ws;
+ try {
+ const debuggerUrl=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(new Error('Chromium no inició')),15000);chrome.stderr.on('data',chunk=>{output+=chunk;const m=output.match(/DevTools listening on (ws:\/\/[^\s]+)/);if(m){clearTimeout(timer);resolve(m[1]);}});chrome.on('error',reject);});
+ const debugBase=new URL(debuggerUrl).origin.replace('ws:','http:');const targets=await (await fetch(debugBase+'/json')).json();
+ ws=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await once(ws,'open');let id=0;const calls=new Map(),errors=[];
+ ws.on('message',raw=>{const m=JSON.parse(raw);if(m.id){calls.get(m.id)?.(m);calls.delete(m.id);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);});
+ const cmd=(method,params={})=>new Promise((resolve,reject)=>{const key=++id;calls.set(key,m=>m.error?reject(m.error):resolve(m.result));ws.send(JSON.stringify({id:key,method,params}));});
+ const evaluate=async expression=>{const r=await cmd('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const wait=async expr=>{for(let i=0;i<100;i++){if(await evaluate(expr))return;await new Promise(r=>setTimeout(r,100));}throw new Error('Timeout '+expr);};
+ await cmd('Page.enable');await cmd('Runtime.enable');await cmd('Network.enable');
+ await cmd('Page.navigate',{url:base+'/'});
+ await wait('!!document.getElementById("crearCuenta")');
+ await evaluate(`sessionStorage.setItem('tombolaOrgToken','test')`);
+ await cmd('Page.navigate',{url:base+'/vistas-sorteos.html?portal=organizador&vista=resultado'});
+ await wait('typeof verResultado === "function"');
+ await evaluate(`sessionStorage.setItem('tombolaOrgToken','test');document.getElementById('resultadoToken').value='token';irATab('resultado');verResultado()`);
+ await wait('document.querySelectorAll("#resultadoPanel .resultado-canto").length === 2');
+ await evaluate(`window.compartido=null;Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.compartido={keys:Object.keys(data),files:data.files.map(f=>({name:f.name,type:f.type,size:f.size}))};}});document.querySelector('#resultadoPanel > button').click()`);
+ await wait('document.querySelector("dialog[open] img")?.complete && !document.querySelector("dialog[open] > .btn-primary").disabled');
+ assert.equal(await evaluate('document.querySelectorAll("dialog[open] img").length'),1);
+ const imagen=await evaluate(`fetch(document.querySelector('dialog[open] img').src).then(r=>r.blob()).then(b=>new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.readAsDataURL(b)}))`);
+ require('node:fs').writeFileSync('/tmp/ganadores-preview.png',Buffer.from(imagen,'base64'));
+ await evaluate(`document.querySelector('dialog[open] > .btn-primary').click()`);
+ await wait('window.compartido !== null');
+ assert.deepEqual(await evaluate('window.compartido.keys'),['files']);
+ assert.equal(await evaluate('window.compartido.files[0].type'),'image/png');
+ assert((await evaluate('window.compartido.files[0].size')) > 1000);
+ await evaluate(`document.querySelector('dialog[open]').close()`);
+ await wait('!document.querySelector("#resultadoPanel > button").disabled');
+ await evaluate(`Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>false});document.querySelector('#resultadoPanel > button').click()`);
+ await wait('document.querySelector("dialog[open] a[download]") && document.querySelector("dialog[open] [role=status]").textContent.includes("adjuntalas")');
+ assert.equal(await evaluate('document.querySelector("dialog[open] > .btn-primary").hidden'),true);
+ await evaluate(`document.querySelector('dialog[open]').close();document.getElementById('resultadoPanel').innerHTML=Transparencia.resultados({cantos:[]});CompartirResultados.montar(document.getElementById('resultadoPanel'))`);
+ assert.equal(await evaluate('document.querySelectorAll("#resultadoPanel button").length'),0);
+ assert.deepEqual(errors,[]);
+ console.log('OK: imagen PNG de ganadores y cartones, compartir solo archivos, descarga alternativa y sin botón cuando no hay ganadores.');
+ } finally {
+   if(ws)ws.close();chrome.kill();await once(chrome,'exit');
+   for(const client of wss.clients)client.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));
+   await rm(profile,{recursive:true,force:true,maxRetries:20,retryDelay:250});
+ }
+})().catch(error=>{console.error(error);process.exitCode=1});

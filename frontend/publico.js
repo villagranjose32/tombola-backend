@@ -59,7 +59,7 @@
       if (seleccion.serie) {
         const url = enlace('/tablero-publico.html');
         const aviso = document.createElement('div');
-        aviso.innerHTML = `<p>Guardá el enlace del sorteo. En Mis series podrás descargarla cuando el organizador confirme el pago.</p><div class="acciones"><a class="enlace" href="${escape(url)}">Volver al sorteo</a><button>Copiar enlace del sorteo</button></div>`;
+        aviso.innerHTML = `<p>Guardá el enlace del sorteo. En Ver y descargar mis cartones podrás descargarla cuando el organizador confirme el pago.</p><div class="acciones"><a class="enlace" href="${escape(url)}">Volver al sorteo</a><button>Copiar enlace del sorteo</button></div>`;
         aviso.querySelector('button').onclick = () => compartir(url);
         $('comprobante').replaceChildren(aviso);
       }
@@ -129,7 +129,16 @@
       for (const [i, src] of fotos.entries()) {
         const img = document.createElement('img'); img.src = src; img.alt = `Premio ${i + 1}`;
         img.style.cssText = 'width:100%;max-width:280px;max-height:260px;object-fit:contain;border-radius:12px;margin:8px';
-        $('premios').append(img);
+        const figura = document.createElement('figure');
+        figura.style.cssText = 'display:inline-block;vertical-align:top;max-width:280px;margin:8px';
+        img.style.margin = '0'; figura.append(img);
+        const descripcion = data.presentacion?.descripcionesPremios?.[i];
+        if (descripcion) {
+          const texto = document.createElement('figcaption'); texto.textContent = descripcion;
+          texto.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px';
+          figura.append(texto);
+        }
+        $('premios').append(figura);
       }
     }
     document.getElementById('verSeries').hidden = data.tipo !== 'BINGO';
@@ -164,15 +173,15 @@
     await cargar();
   }
   if (unificado) {
-    for (const [nombre, destino, id] of [['Comprar / participar', 'tablero', 'verCompra'], ['Mis series', 'descarga', 'verSeries'], ['Ingresar al vivo', 'vivo', 'verVivo'], ['Ver resultados', 'resultado', 'verResultados']]) {
+    for (const [nombre, destino, id] of [['Comprar / participar', 'tablero', 'verCompra'], ['Ver y descargar mis cartones', 'descarga', 'verSeries'], ['Ingresar al vivo', 'vivo', 'verVivo'], ['Ver resultados', 'resultado', 'verResultados']]) {
       const boton = document.createElement('button'); boton.id = id; boton.textContent = nombre;
       boton.onclick = () => cambiarVista(destino); document.querySelector('.acciones').append(boton);
     }
     const reloj = setInterval(actualizarCuenta, 1000);
     window.addEventListener('pagehide', () => clearInterval(reloj), {once:true});
   }
-  $('compartir').hidden = false;
-  $('actualizar').hidden = false;
+  $('compartir').hidden = unificado;
+  $('actualizar').hidden = unificado;
   $('compartir').onclick = () => compartir(enlace(unificado ? '/tablero-publico.html' : location.pathname, unificado ? null : vista === 'descarga' ? numeroSerie : null));
   $('actualizar').onclick = () => vista === 'vivo' ? cambiarVista('vivo') : cargar;
   if (vista === 'descarga') prepararDescarga();

@@ -167,14 +167,14 @@
     </div>
     <div class="panel" id="serieEspectadorBox" style="display:none;">
       <h2>Mis cartones</h2>
-      <div class="field"><label>Número de serie</label><div class="serie-load-row"><input id="serieReingreso" type="number" min="1" placeholder="Ej: 12"><button class="btn btn-primary" id="btnCargarSerieEspectador">Agregar</button></div></div>
+      <div class="field"><label for="dniReingreso">DNI del titular</label><div class="serie-load-row"><input id="dniReingreso" inputmode="numeric" pattern="[0-9]{7,8}" minlength="7" maxlength="8" placeholder="Sin puntos"><button class="btn btn-primary" id="btnCargarSerieEspectador">Ver mis cartones</button></div></div><p id="consultaCartonesMsg" role="status"></p>
       <label>Símbolo para marcar</label>
       <div class="mark-palette" id="markPaletteVivo">
         <button type="button" class="btn btn-ghost mark-choice active" data-mark="🌱" title="Semilla">🌱</button>
         <button type="button" class="btn btn-ghost mark-choice" data-mark="✓" title="Tilde">✓</button>
         <button type="button" class="btn btn-ghost mark-choice" data-mark="✕" title="Cruz">✕</button>
       </div>
-      <div class="hint">Podés agregar varias series. Tocá un número del cartón para marcarlo o desmarcarlo.</div>
+      <div class="hint">Ingresá solo tu DNI para cargar todas tus series confirmadas de este sorteo. Tocá un número del cartón para marcarlo o desmarcarlo.</div>
     </div>
     <div class="panel" id="verificarSerieBox" style="display:none;"><h2>Control de ganador</h2><div class="field"><label>Número de serie</label><input id="serieControlNumero" type="number" min="1"></div><div class="field"><label>Número de cartón</label><input id="cartonControlNumero" type="number" min="1"></div><button class="btn btn-ghost btn-full" id="btnVerificarSerie">Ver cartón y marcas</button></div>
     <div id="zonaJuego">
@@ -406,8 +406,20 @@
       ? `${window.location.origin}${window.location.pathname}?modo=espectador&sorteo=${encodeURIComponent(sorteoToken)}`
       : '';
     document.getElementById('linkCompartir').innerHTML = enlaceEspectador
-      ? `Link para espectador:<br><a href="${enlaceEspectador}" style="color:inherit;word-break:break-all">${enlaceEspectador}</a>`
+      ? `Link para espectador:<br><a href="${enlaceEspectador}" style="color:inherit;word-break:break-all">${enlaceEspectador}</a><br><button type="button" class="btn btn-primary" id="btnCopiarEnlaceVivo" style="margin-top:10px">Copiar enlace</button><p id="copiarEnlaceVivoMsg" role="status"></p>`
       : '';
+    const copiar = document.getElementById('btnCopiarEnlaceVivo');
+    if (copiar) copiar.onclick = async () => {
+      copiar.disabled = true;
+      const mensaje = document.getElementById('copiarEnlaceVivoMsg');
+      try {
+        await navigator.clipboard.writeText(enlaceEspectador);
+        mensaje.textContent = 'Enlace copiado. Ya podés pegarlo y compartirlo.';
+      } catch (_) {
+        mensaje.textContent = 'Copiá el enlace que aparece a continuación.';
+        window.prompt('Copiar enlace del sorteo:', enlaceEspectador);
+      } finally { copiar.disabled = false; }
+    };
     construirCage();
     if (sorteoToken) conectarWs(sorteoToken);
   }
@@ -559,17 +571,31 @@
   function pintarCartones(data, editable){
     document.getElementById('cartonesEnVivo').innerHTML=htmlCartones(data,editable);
   }
-  async function agregarSerieEspectador(){
-    const numeroSerie=Number(document.getElementById('serieReingreso').value);
-    if(!Number.isInteger(numeroSerie)||numeroSerie<1){alert('Ingresá un número de serie válido');return;}
-    try{
-      const data=await api(`/vivo/${sorteoToken}/mi-serie?numeroSerie=${numeroSerie}`);
-      seriesEspectador.set(numeroSerie,data);
-      renderSeriesEspectador(); document.getElementById('serieReingreso').value='';
-    }catch(e){alert(e.message);}
+  async function cargarCartonesPorDni(){
+    const boton = document.getElementById('btnCargarSerieEspectador');
+    const campo = document.getElementById('dniReingreso');
+    const mensaje = document.getElementById('consultaCartonesMsg');
+    if (boton.disabled) return;
+    const dni = campo.value.trim();
+    seriesEspectador.clear(); renderSeriesEspectador();
+    if (!/^[0-9]{7,8}$/.test(dni)) { mensaje.textContent = 'Ingresá un DNI de 7 u 8 dígitos, sin puntos.'; return; }
+    boton.disabled = true; campo.disabled = true;
+    mensaje.textContent = 'Buscando cartones…';
+    try {
+      const data = await api(`/vivo/${sorteoToken}/mis-series`, {method:'POST', body:{dni}});
+      for (const serie of data.series) seriesEspectador.set(serie.numeroSerie, serie);
+      renderSeriesEspectador();
+      mensaje.textContent = data.series.length
+        ? `${data.series.reduce((total, serie) => total + serie.cartones.length, 0)} cartones en ${data.series.length} series confirmadas.`
+        : 'No encontramos series confirmadas para ese DNI en este sorteo. Si reservaste, esperá la confirmación del pago.';
+    } catch(e) { mensaje.textContent = e.message; }
+    finally { boton.disabled = false; campo.disabled = false; }
   }
-  document.getElementById('btnCargarSerieEspectador').addEventListener('click',agregarSerieEspectador);
-  document.getElementById('serieReingreso').addEventListener('keydown',e=>{if(e.key==='Enter')agregarSerieEspectador();});
+  document.getElementById('btnCargarSerieEspectador').addEventListener('click', cargarCartonesPorDni);
+  document.getElementById('dniReingreso').addEventListener('keydown', e => { if(e.key === 'Enter') cargarCartonesPorDni(); });
+  document.getElementById('dniReingreso').addEventListener('input', () => {
+    seriesEspectador.clear(); renderSeriesEspectador(); document.getElementById('consultaCartonesMsg').textContent = '';
+  });
   document.getElementById('markPaletteVivo').addEventListener('click',e=>{
     const boton=e.target.closest('[data-mark]'); if(!boton)return;
     simboloMarca=boton.dataset.mark;
@@ -613,7 +639,7 @@
   async function cantarReclamo(tipo){
     try{
       const numerosSeries = [...seriesEspectador.keys()];
-      if (!numerosSeries.length) throw new Error('Agregá tu serie antes de cantar.');
+      if (!numerosSeries.length) throw new Error('Consultá tus cartones con tu DNI antes de cantar.');
       document.getElementById('btnCantarLinea').disabled = true;
       document.getElementById('btnCantarBingo').disabled = true;
       const resultado=await api(`/vivo/${sorteoToken}/cantar`,{method:'POST',body:{tipo,numerosSeries}});

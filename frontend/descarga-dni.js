@@ -28,7 +28,7 @@ window.DescargaDni = {
         const cantidad = data.series.reduce((total, s) => total + s.cartones.length, 0);
         mensaje.textContent = data.series.length ? `${cantidad} cartones en ${data.series.length} series confirmadas.` : 'No encontramos series confirmadas para ese DNI en este sorteo.';
         if (data.pendientes.length) mensaje.textContent += ` Pendientes de pago: series ${data.pendientes.join(', ')}.`;
-        resultados.innerHTML = (data.series.length ? '<button class="btn btn-primary" type="button" data-pdf="">Descargar todos mis cartones (PDF)</button>' : '') + data.series.map(s => `<section><h2>Serie ${s.numeroSerie} · ${escape(s.nombre || 'Titular')}</h2><button class="btn btn-ghost" type="button" data-pdf="${s.numeroSerie}">Descargar esta serie (PDF)</button><div class="resultados-cantos">${s.cartones.map(c => `<article class="resultado-canto"><h3>Cartón ${c.posicion}</h3><div class="resultado-celdas">${c.contenido.flat().map(n => `<span class="${n === null ? 'vacia' : ''}">${escape(n)}</span>`).join('')}</div></article>`).join('')}</div></section>`).join('');
+        resultados.innerHTML = (data.series.length ? '<button class="btn btn-primary" type="button" data-pdf="">Descargar todos mis cartones (PDF)</button>' : '') + data.series.map(s => `<section><h2>Serie ${s.numeroSerie} · ${escape(s.nombre || 'Titular')}</h2><div class="resultados-cantos">${s.cartones.map(c => `<article class="resultado-canto"><h3>Cartón ${c.posicion}</h3><div class="resultado-celdas">${c.contenido.flat().map(n => `<span class="${n === null ? 'vacia' : ''}">${escape(n)}</span>`).join('')}</div></article>`).join('')}</div></section>`).join('');
       } catch (error) { if (actual === version) mensaje.textContent = error.message; }
       finally { buscando = false; form.querySelector('button').disabled = false; }
     }
@@ -37,13 +37,12 @@ window.DescargaDni = {
       const boton = event.target.closest('[data-pdf]');
       if (!boton || boton.disabled || !consulta) return;
       const {dni, token} = consulta;
-      const numeroSerie = boton.dataset.pdf ? Number(boton.dataset.pdf) : undefined;
       boton.disabled = true;
       try {
-        const response = await fetch(`${base}/s/${encodeURIComponent(token)}/mis-series/descargar`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dni, numeroSerie})});
+        const response = await fetch(`${base}/s/${encodeURIComponent(token)}/mis-series/descargar`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({dni})});
         if (!response.ok) { const data = await response.json(); throw new Error(data.error || 'No se pudo descargar el PDF.'); }
         const url = URL.createObjectURL(await response.blob());
-        const link = document.createElement('a'); link.href = url; link.download = numeroSerie ? `serie-${numeroSerie}.pdf` : 'mis-cartones.pdf';
+        const link = document.createElement('a'); link.href = url; link.download = 'mis-cartones.pdf';
         document.body.append(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 60000);
       } catch (error) { mensaje.textContent = error.message; }

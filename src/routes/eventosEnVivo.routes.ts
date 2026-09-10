@@ -134,6 +134,22 @@ async function serieAutorizada(token: string, numeroSerie: number) {
   return { evento, serie };
 }
 
+eventosEnVivoPublicoRouter.post("/:token/mis-series", asyncHandler(async (req, res) => {
+  const { dni } = z.object({ dni: z.string().trim().regex(/^[0-9]{7,8}$/, "Ingresá un DNI de 7 u 8 dígitos, sin puntos") }).parse(req.body);
+  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken: req.params.token } });
+  if (!evento) throw new HttpError(404, "Sorteo en vivo no encontrado");
+  if (!evento.sorteoBingoId) throw new HttpError(400, "Este evento no está vinculado a un bingo");
+  const series = await prisma.serie.findMany({
+    where: { sorteoId: evento.sorteoBingoId, participante: { dni }, estado: "TOMADO" },
+    orderBy: { numero: "asc" },
+    select: { numero: true, cartones: { orderBy: { posicion: "asc" } },
+      estadosEnVivo: { where: { eventoId: evento.id }, select: { marcas: true } } },
+  });
+  res.set("Cache-Control", "no-store").json({ series: series.map(serie => ({
+    numeroSerie: serie.numero, cartones: serie.cartones, marcas: serie.estadosEnVivo[0]?.marcas || {},
+  })) });
+}));
+
 eventosEnVivoPublicoRouter.get("/:token/mi-serie", asyncHandler(async (req, res) => {
   const { evento, serie } = await serieAutorizada(req.params.token, Number(req.query.numeroSerie));
   const estado = await prisma.estadoCartonesEnVivo.findUnique({ where: { eventoId_serieId: { eventoId: evento.id, serieId: serie.id } } });
