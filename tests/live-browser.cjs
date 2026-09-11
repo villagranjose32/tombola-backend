@@ -25,6 +25,17 @@ app.get('/sorteos/pagos/:tipo',(q,r)=>r.json({tipo:q.params.tipo==='numeros'?'RI
 app.patch('/sorteos/pagos/:tipo/:numero',(q,r)=>{pagos.push(q.body);reservas[q.params.tipo]=q.body.estado;r.json({});});
 app.post('/vivo/:token/mis-series',(q,r)=>{assert.deepEqual(q.body,{dni:'12345678'});r.json({series:[1,2].map(numeroSerie=>({numeroSerie,marcas:{},cartones:Array.from({length:6},(_,i)=>({...testCard,id:'card-'+i,posicion:i+1}))}))});});
 app.post('/vivo/:token/cantar',(q,r)=>{lastClaim=q.body;state={...state,secuencia:state.secuencia+1,estado:'PAUSADO',cantos:[{tipo:q.body.tipo,numeroSerie:2,numeroCarton:2,participante:'Ana <script>',carton:testCard}],historialGanadores:[...(state.historialGanadores||[]),{tipo:q.body.tipo,numeroSerie:2,numeroCarton:2,participante:'Ana <script>'}]};r.json({type:'STATE_SNAPSHOT',...state});});
+let resetRequests=0, resetFails=false;const mutationOrder=[];
+app.post('/eventos-en-vivo/room/extraer',async(_q,r)=>{
+  await new Promise(resolve=>setTimeout(resolve,250));
+  mutationOrder.push('extraer');state={...state,secuencia:state.secuencia+1,numeroActual:21,numerosExtraidos:[...state.numerosExtraidos,21],bolillas:[...state.numerosExtraidos,21],estado:'EN_CURSO'};
+  r.json({tablero:state});
+});
+app.post('/eventos-en-vivo/room/reiniciar',(_q,r)=>{
+  resetRequests++;if(resetFails)return r.status(503).json({error:'Servidor no disponible'});
+  mutationOrder.push('reiniciar');state={...state,secuencia:state.secuencia+1,ronda:state.ronda+1,numeroActual:null,numerosExtraidos:[],bolillas:[],cantos:[],historialGanadores:[],estado:'EN_CURSO'};
+  r.json(state);
+});
 app.get('/vivo/:token',(_q,r)=>r.set('Cache-Control','no-store').json({type:'STATE_SNAPSHOT',...state}));
 app.use(express.static(path.resolve(__dirname,'../frontend')));
 (async()=>{
@@ -136,6 +147,25 @@ app.use(express.static(path.resolve(__dirname,'../frontend')));
    await evaluate('document.getElementById("boardPanel").scrollIntoView()');
    await wait('!document.getElementById("avisoOrganizador").hidden');
    const rect=await evaluate('document.getElementById("avisoOrganizador").getBoundingClientRect().top');assert(rect>=0&&rect<100);
+   await evaluate('window.confirm=()=>{throw new Error("No debe usar confirm nativo")};document.getElementById("btnReiniciar").click()');
+   assert.equal(await evaluate('document.getElementById("confirmarReinicio").hidden'),false);
+   await evaluate('document.getElementById("btnCancelarReinicio").click()');assert.equal(resetRequests,0);
+   resetFails=true;
+   await evaluate('document.getElementById("btnReiniciar").click();document.getElementById("btnConfirmarReinicio").click()');
+   await wait('document.getElementById("reinicioEstado").textContent.includes("Servidor no disponible")');
+   assert.equal(await evaluate('document.getElementById("btnReiniciar").disabled'),false);
+   resetFails=false;
+   state={...state,estado:'EN_CURSO',secuencia:state.secuencia+1};
+   for(const client of wss.clients)client.send(JSON.stringify({...state,type:'STATE_UPDATE'}));
+   await wait('document.getElementById("btnExtraer").textContent === "Extraer bolilla"');
+   await evaluate('document.getElementById("btnExtraer").click();document.getElementById("btnReiniciar").click();document.getElementById("btnConfirmarReinicio").click();document.getElementById("btnConfirmarReinicio").click()');
+   await wait('document.getElementById("reinicioEstado").textContent.includes("Tablero reiniciado")');
+   assert.equal(resetRequests,2);assert.deepEqual(mutationOrder,['extraer','reiniciar']);
+   assert.equal(await evaluate('document.querySelectorAll("#board .called").length'),0);
+   assert.equal(await evaluate('document.getElementById("currentBall").textContent'),'esperando');
+   assert.equal(await evaluate('document.getElementById("reclamoPublico").classList.contains("show")'),false);
+   assert.equal(await evaluate('document.getElementById("btnExtraer").disabled'),false);
+   console.log('OK: reinicio sin confirm nativo, cancelación, error recuperable, doble clic y extracción pendiente.');
    assert.deepEqual(errors,[]);
    console.log('OK: organizador escribe y envía un aviso visible incluso al desplazarse; vista móvil sin desbordamiento.');
    return;

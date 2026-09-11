@@ -49,6 +49,14 @@
   .banner.err{ background:rgba(189,64,48,0.15); color:#e18072; border:1px solid rgba(189,64,48,0.3); }
   .banner.info{ background:rgba(227,162,59,0.1); color:var(--marquee); border:1px solid rgba(227,162,59,0.3); }
 
+  #mensajesOrganizador{border:1px solid #a787ed;background:linear-gradient(135deg,#302749,#1e3b2a);margin-bottom:16px}
+  #mensajesOrganizador h2{font-size:18px;color:#e0d2ff}
+  #mensajesOrganizador label{color:var(--paper);text-transform:none;font:13px var(--body)}
+  #textoMensaje{width:100%;resize:vertical;min-height:76px;border:1px solid #a787ed;border-radius:8px;padding:12px;background:var(--ink);color:var(--chalk);font:14px var(--body)}
+  #textoMensaje:focus-visible{outline:2px solid #dbc7ff;outline-offset:2px}
+  #mensajesOrganizador .hint{color:#d2c9de}
+  #btnEnviarMensaje{margin-top:12px;background:linear-gradient(135deg,#8654cd,#6532ad);color:white;min-height:48px;box-shadow:inset 0 1px 1px #ffffff60,0 4px 0 #3b1b68;font-size:14px}
+  #btnEnviarMensaje:focus-visible{outline:3px solid white;outline-offset:4px}
   /* bolillero */
   .cage-wrap{ display:flex; flex-direction:column; align-items:center; }
   .cage{ position:relative; width:220px; height:220px; border-radius:50%; background: radial-gradient(circle at 35% 30%, rgba(246,241,228,0.06), transparent 60%), var(--felt-2); border:3px solid rgba(246,241,228,0.15); overflow:hidden; }
@@ -227,6 +235,16 @@
 
   <div>
     <div class="winner-banner" id="winnerBanner"></div>
+    <section class="panel" id="mensajesOrganizador" hidden aria-labelledby="tituloMensajes">
+      <h2 id="tituloMensajes">📣 Enviar mensaje a los espectadores</h2>
+      <form id="formMensaje">
+        <label for="textoMensaje">Escribí el anuncio que querés mostrar a todos</label>
+        <textarea id="textoMensaje" maxlength="280" rows="2" required placeholder="Por ejemplo: Seguimos con la siguiente línea"></textarea>
+        <div class="hint">Todos los espectadores lo verán durante 8 segundos. Hasta 280 caracteres.</div>
+        <button type="submit" class="btn btn-full" id="btnEnviarMensaje">Enviar a todos los espectadores</button>
+        <p id="mensajeEnvioEstado" role="status"></p>
+      </form>
+    </section>
     <div class="panel" id="cagePanel" style="display:none;">
       <h2>Bolillero</h2>
       <div class="bolillero-layout"><div class="cage-wrap">
@@ -259,20 +277,19 @@
       <button class="btn btn-primary btn-full" id="btnExtraer">Extraer bolilla</button>
       <div class="sub-controls">
         <button id="autoplayBtn">▶ Iniciar automático</button>
-        <button id="btnReiniciar">↺ Vaciar y volver a jugar</button>
+        <button type="button" id="btnReiniciar" aria-expanded="false" aria-controls="confirmarReinicio">↺ Vaciar y volver a jugar</button>
       </div>
+      <div id="confirmarReinicio" class="banner info" hidden style="margin-top:12px">
+        <p>¿Vaciar las bolillas y las marcas para empezar otra ronda? Se conservan las series, los cartones y el historial de ganadores.</p>
+        <div class="sub-controls"><button type="button" id="btnConfirmarReinicio">Sí, vaciar tablero</button><button type="button" id="btnCancelarReinicio">Cancelar</button></div>
+      </div>
+      <p id="reinicioEstado" role="status" aria-live="polite"></p>
       <div class="field" style="margin-top:14px;">
         <label>Velocidad automática — <span id="speedVal">2.4</span>s</label>
         <input type="range" id="speedRange" min="1" max="8" step="0.2" value="2.4">
       </div>
       <button class="btn btn-ghost btn-full" id="btnReconfigurar" style="margin-top:8px;">⚙ Reconfigurar (reinicia todo)</button>
-      <form id="formMensaje" style="margin-top:14px">
-        <label for="textoMensaje">Mensaje para todos</label>
-        <input id="textoMensaje" maxlength="280" required placeholder="Escribí tu mensaje…" autocomplete="off">
-        <div class="hint">Se mostrará durante 8 segundos.</div>
-        <button class="btn btn-primary btn-full" id="btnEnviarMensaje" style="margin-top:8px">Enviar mensaje</button>
-        <p id="mensajeEnvioEstado" role="status"></p>
-      </form>
+
       <div class="link-share" id="linkCompartir"></div>
     </div>
 
@@ -309,6 +326,7 @@
   let autoplay = false, autoTimer = null, autoplaySeconds = 2.4;
   let voiceVolume = 1;
   let liveSync = null;
+  let reiniciando = false, extraccionPendiente = null;
 
   async function api(path, { method='GET', body, token } = {}) {
     const headers = {};
@@ -355,6 +373,7 @@
       actualizarCampoRepeticiones();
       document.getElementById('orgConfigBox').style.display = 'block';
       document.getElementById('orgControlesBox').style.display = 'none';
+    document.getElementById('mensajesOrganizador').hidden = true;
       document.getElementById('cagePanel').style.display = 'block';
       document.getElementById('boardPanel').style.display = 'none';
       document.getElementById('vozBox').style.display = 'none';
@@ -378,6 +397,7 @@
       // todavía no se inició: mostrar el formulario de config
       document.getElementById('orgConfigBox').style.display = 'block';
       document.getElementById('orgControlesBox').style.display = 'none';
+    document.getElementById('mensajesOrganizador').hidden = true;
       document.getElementById('cagePanel').style.display = 'block';
       document.getElementById('boardPanel').style.display = 'none';
       document.getElementById('vozBox').style.display = 'none';
@@ -401,6 +421,7 @@
     document.getElementById('orgConfigBox').style.display = 'block';
     document.getElementById('cagePanel').style.display = 'block';
     document.getElementById('orgControlesBox').style.display = 'none';
+    document.getElementById('mensajesOrganizador').hidden = true;
   });
 
   function actualizarCampoRepeticiones(){
@@ -438,12 +459,14 @@
     document.getElementById('orgConfigBox').style.display = 'block';
     document.getElementById('cagePanel').style.display = 'block';
     document.getElementById('orgControlesBox').style.display = 'none';
+    document.getElementById('mensajesOrganizador').hidden = true;
     actualizarCampoRepeticiones();
   });
 
   function mostrarControlesOrganizador(){
     document.getElementById('orgConfigBox').style.display = 'none';
     document.getElementById('orgControlesBox').style.display = 'block';
+    document.getElementById('mensajesOrganizador').hidden = false;
     document.getElementById('cagePanel').style.display = 'block';
     document.getElementById('boardPanel').style.display = 'block';
     document.getElementById('vozBox').style.display = 'block';
@@ -476,7 +499,12 @@
   }
 
   document.getElementById('btnExtraer').addEventListener('click', extraerBolilla);
-  async function extraerBolilla(){
+  function extraerBolilla(){
+    if (reiniciando || extraccionPendiente) return extraccionPendiente;
+    extraccionPendiente = realizarExtraccion().finally(() => { extraccionPendiente = null; });
+    return extraccionPendiente;
+  }
+  async function realizarExtraccion(){
     if (!estado || estado.estado === 'FINALIZADO') return;
     if (estado.estado === 'PAUSADO') { await reanudarExtraccion(); return; }
     document.getElementById('btnExtraer').disabled = true;
@@ -494,13 +522,50 @@
     }
   }
 
-  document.getElementById('btnReiniciar').addEventListener('click', async () => {
-    if (!confirm('¿Vaciar todas las bolillas y volver a jugar con las mismas series y cartones?')) return;
+  function cerrarConfirmacionReinicio(){
+    document.getElementById('confirmarReinicio').hidden = true;
+    document.getElementById('btnReiniciar').setAttribute('aria-expanded', 'false');
+  }
+  document.getElementById('btnReiniciar').addEventListener('click', () => {
+    if (reiniciando) return;
+    const mensaje = document.getElementById('reinicioEstado');
+    if (!sorteoId || !liveSync) { mensaje.textContent = 'Cargá el tablero que querés reiniciar.'; return; }
     pararAutoplay();
+    mensaje.textContent = '';
+    document.getElementById('confirmarReinicio').hidden = false;
+    document.getElementById('btnReiniciar').setAttribute('aria-expanded', 'true');
+    document.getElementById('btnConfirmarReinicio').focus();
+  });
+  document.getElementById('btnCancelarReinicio').addEventListener('click', () => {
+    cerrarConfirmacionReinicio();
+    document.getElementById('btnReiniciar').focus();
+  });
+  document.getElementById('btnConfirmarReinicio').addEventListener('click', async () => {
+    if (reiniciando || !sorteoId || !liveSync) return;
+    const eventoId = sorteoId, sincronizacion = liveSync;
+    const mensaje = document.getElementById('reinicioEstado');
+    reiniciando = true;
+    pararAutoplay();
+    cerrarConfirmacionReinicio();
+    document.getElementById('btnReiniciar').disabled = true;
+    document.getElementById('btnExtraer').disabled = true;
+    autoplayBtn.disabled = true;
+    mensaje.textContent = 'Reiniciando tablero…';
     try {
-      const snapshot = await api(`/eventos-en-vivo/${sorteoId}/reiniciar`, { method:'POST', token: orgToken });
-      liveSync?.accept({type: 'STATE_SNAPSHOT', ...snapshot}, true, false);
-    } catch (e) { alert(e.message); }
+      // Una extracción ya enviada debe terminar antes de vaciar la ronda.
+      await extraccionPendiente;
+      const snapshot = await api(`/eventos-en-vivo/${eventoId}/reiniciar`, { method:'POST', token: orgToken });
+      if (liveSync !== sincronizacion) return;
+      sincronizacion.accept({type: 'STATE_SNAPSHOT', ...snapshot}, true, false);
+      mensaje.textContent = 'Tablero reiniciado. Ya podés comenzar otra ronda.';
+    } catch (e) {
+      if (liveSync === sincronizacion) mensaje.textContent = `No se pudo reiniciar: ${e.message}. Intentá nuevamente.`;
+    } finally {
+      reiniciando = false;
+      document.getElementById('btnReiniciar').disabled = false;
+      document.getElementById('btnExtraer').disabled = !estado || estado.estado === 'FINALIZADO';
+      autoplayBtn.disabled = !estado || estado.estado !== 'EN_CURSO';
+    }
   });
   async function reanudarExtraccion() {
     try {
@@ -512,7 +577,7 @@
   const autoplayBtn = document.getElementById('autoplayBtn');
   autoplayBtn.addEventListener('click', () => autoplay ? pararAutoplay() : arrancarAutoplay());
   function arrancarAutoplay(){
-    if (!estado || estado.estado !== 'EN_CURSO') return;
+    if (reiniciando || !estado || estado.estado !== 'EN_CURSO') return;
     autoplay = true; autoplayBtn.textContent = '⏸ Pausar'; autoplayBtn.classList.add('active');
     clearInterval(autoTimer);
     autoTimer = setInterval(() => { if (estado?.estado === 'EN_CURSO' && !document.getElementById('btnExtraer').disabled) extraerBolilla(); }, autoplaySeconds*1000);
@@ -551,6 +616,8 @@
     }
   }
   function limpiarComunidad() {
+    cerrarConfirmacionReinicio();
+    document.getElementById('reinicioEstado').textContent = '';
     clearTimeout(avisoTimer);
     document.getElementById('audiencia').hidden = true;
     document.getElementById('avisoOrganizador').hidden = true;
@@ -644,9 +711,9 @@
         mostrarGanadores(estado);
         mostrarReclamo(estado);
         if (estado.estado !== 'EN_CURSO') pararAutoplay();
-        autoplayBtn.disabled = estado.estado !== 'EN_CURSO';
+        autoplayBtn.disabled = reiniciando || estado.estado !== 'EN_CURSO';
         if (modoPantalla === 'organizador') {
-          document.getElementById('btnExtraer').disabled = estado.estado === 'FINALIZADO';
+          document.getElementById('btnExtraer').disabled = reiniciando || estado.estado === 'FINALIZADO';
           document.getElementById('btnExtraer').textContent = estado.estado === 'PAUSADO' ? 'Reanudar extracción' : 'Extraer bolilla';
         }
       }
