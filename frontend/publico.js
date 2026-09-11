@@ -82,12 +82,21 @@
     const bingo = data.tipo === 'BINGO';
     $('contenido').innerHTML = '<p class="leyenda">Verde: disponible · Amarillo: pendiente de pago · Oscuro: vendido</p><div class="grid"></div>';
     const grid = $('contenido').querySelector('.grid');
+    if (bingo) {
+      grid.classList.add('series-compra');
+      $('contenido').querySelector('.leyenda').textContent = 'Azul: disponible · Amarillo: pendiente de pago · Rojo: vendido';
+    }
     for (const item of data.tablero) {
       const numero = bingo ? item.numero : item.valor;
       const boton = document.createElement('button');
       boton.className = 'item ' + item.estado.toLowerCase();
       boton.textContent = String(numero);
       const estado = item.estado === 'LIBRE' ? 'Disponible' : item.estado === 'RESERVADO' ? 'Pendiente' : 'Vendido';
+      if (bingo) {
+        const etiqueta = document.createElement('span');
+        etiqueta.textContent = estado;
+        boton.append(etiqueta);
+      }
       boton.setAttribute('aria-label', `${bingo ? 'Serie' : 'Número'} ${numero}, ${estado}${bingo ? `, ${item.cantidadCartones} cartones` : ''}`);
       boton.disabled = item.estado !== 'LIBRE' || data.estado !== 'ACTIVO';
       boton.onclick = () => reservar(`${ruta}/${bingo ? 'series' : 'numeros'}/${numero}/reservar`, `Reservar ${bingo ? 'serie' : 'número'} ${numero}`, bingo ? numero : null);

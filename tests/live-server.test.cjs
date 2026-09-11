@@ -136,6 +136,29 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      await prisma.participante.deleteMany({where:{id:{in:participantes.map(p=>p.id)}}});
    }
  });
+ await t.test('Presencia por sala excluye organizador y mensajes requieren titularidad',async()=>{
+   const owner=await open({},evento.linkToken+'&espectador=0');
+   const viewers=message(owner,x=>x.type==='COMMUNITY_UPDATE'&&x.comunidad.espectadores===1);
+   const spectator=await open();await viewers;
+   const isolated=await open({},'otra-sala');
+   const received=message(spectator,x=>x.type==='COMMUNITY_UPDATE'&&x.comunidad.aviso);
+   const sent=await request('mensaje',{texto:'  Seguimos con el bingo  '});
+   assert.equal(sent.res.status,200);
+   const aviso=(await received).comunidad.aviso;assert.equal(aviso.texto,'Seguimos con el bingo');
+   assert(aviso.expiraEn>Date.now()&&aviso.expiraEn<=Date.now()+8000);
+   const snapshot=await (await fetch(base+'/vivo/'+evento.linkToken)).json();assert.equal(snapshot.comunidad.aviso.id,aviso.id);assert.equal(snapshot.comunidad.espectadores,1);
+   for(const texto of ['', '   ', 'x'.repeat(281)])assert.equal((await request('mensaje',{texto})).res.status,400);
+   assert.equal((await fetch(base+'/eventos-en-vivo/'+evento.id+'/mensaje',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"texto":"No autorizado"}'})).status,401);
+   const other=await prisma.usuario.create({data:{nombre:'Otro',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});
+   try {
+     const denied=await fetch(base+'/eventos-en-vivo/'+evento.id+'/mensaje',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+firmarToken({sub:other.id,rol:'ORGANIZADOR'})},body:'{"texto":"No autorizado"}'});
+     assert.equal(denied.status,403);
+   } finally {await prisma.usuario.delete({where:{id:other.id}});}
+   const isolatedSnapshot=message(isolated,x=>x.type==='COMMUNITY_UPDATE');
+   const extra=await open({},'otra-sala');assert.equal((await isolatedSnapshot).comunidad.aviso,null);
+   const left=message(owner,x=>x.type==='COMMUNITY_UPDATE'&&x.comunidad.espectadores===0);spectator.close();await left;
+   for(const ws of [owner,isolated,extra]){ws.terminate();sockets.delete(ws);}sockets.delete(spectator);
+ });
  await t.test('Upgrade 101 y RESYNC con todos los campos persistidos',async()=>{
    const ws=new WebSocket(base.replace('http','ws')+'/ws?sorteo='+evento.linkToken);sockets.add(ws);
    const opened=once(ws,'open');
@@ -193,8 +216,10 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      const ws=await open();const update=message(ws,x=>x.type==='STATE_UPDATE'&&x.tipo==='reclamo');
      const r=await fetch(base+'/vivo/'+evento.linkToken+'/cantar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({numeroSerie:1,numeroCarton:1,tipo:'BINGO'})});assert.equal(r.status,200);
      const paused=await update;assert.equal(paused.estado,'PAUSADO');assert.equal(paused.secuencia,29);assert.equal(paused.numeroActual,15);
-     assert.equal((await request('reanudar')).data.secuencia,30);
-     const config=await request('configurar',{titulo:'Configurado',modo:'BINGO',rangoMax:90,sorteoBingoId:bingo.id});assert.equal(config.data.secuencia,31);assert.equal(config.data.ronda,2);assert.deepEqual(config.data.numerosExtraidos,[]);
+     assert.equal(paused.historialGanadores.length,1);
+     const resumed=await request('reanudar');assert.equal(resumed.data.secuencia,30);assert.equal(resumed.data.historialGanadores.length,1);
+     assert.equal((await (await fetch(base+'/vivo/'+evento.linkToken)).json()).historialGanadores.length,1);
+     const config=await request('configurar',{titulo:'Configurado',modo:'BINGO',rangoMax:90,sorteoBingoId:bingo.id});assert.equal(config.data.secuencia,31);assert.equal(config.data.ronda,2);assert.deepEqual(config.data.historialGanadores,[]);assert.deepEqual(config.data.numerosExtraidos,[]);
      const historial=await (await fetch(base+'/vivo/'+evento.linkToken+'/resultados')).json();
      assert.equal(historial.cantos.length,1);assert.equal(historial.cantos[0].tipo,'BINGO');
      assert.equal(historial.cantos[0].bolillas.length,15);
@@ -220,6 +245,7 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
    const cantar=async(tipo,numerosSeries)=>{const r=await fetch(base+'/vivo/'+room.linkToken+'/cantar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tipo,numerosSeries})});return {status:r.status,data:await r.json()};};
    try {
      assert.equal((await cantar('BINGO',[1,2])).status,409);
+     assert.equal((await cantar('SEGUNDA_LINEA',[1,2])).status,409);
      assert.equal((await cantar('LINEA',[3])).status,403);
      assert.equal((await cantar('LINEA',[99])).status,403);
      const line=await cantar('LINEA',[1,2]);assert.equal(line.status,200);assert.equal(line.data.numeroSerie,2);assert.equal(line.data.numeroCarton,2);assert.equal(line.data.estado,'PAUSADO');
@@ -237,6 +263,8 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      const identidad=await (await fetch(base+'/s/'+bingo.linkToken+'/organizador')).json();
      assert.equal(identidad.dni,'12345678');assert.equal(identidad.passwordHash,undefined);
      await modificarEvento(room.id,user.id,(e,tx)=>tx.eventoEnVivo.update({where:{id:e.id},data:{bolillas:Array.from({length:15},(_,i)=>i+1),secuencia:{increment:1}}}));
+     const segunda=await cantar('SEGUNDA_LINEA',[1,2]);assert.equal(segunda.status,200);assert(segunda.data.historialGanadores.some(g=>g.tipo==='SEGUNDA_LINEA'));
+     const repetida=await cantar('SEGUNDA_LINEA',[1,2]);assert.equal(repetida.data.historialGanadores.filter(g=>g.tipo==='SEGUNDA_LINEA').length,1);
      const win=await cantar('BINGO',[1,2]);assert.equal(win.status,200);assert.equal(win.data.ganadores.length,1);assert.equal(win.data.numeroCarton,2);assert.equal(win.data.estado,'PAUSADO');
    } finally {
      await prisma.eventoEnVivo.delete({where:{id:room.id}});await prisma.carton.deleteMany({where:{serieId:{in:[a.id,b.id,c.id]}}});await prisma.serie.deleteMany({where:{sorteoId:bingo.id}});await prisma.sorteo.delete({where:{id:bingo.id}});

@@ -23,7 +23,7 @@ window.Transparencia = (() => {
     if (!data.cantos?.length) return '<p>Todavía no se registraron cantos de línea o bingo validados.</p>';
     return '<h2>Líneas y bingos validados</h2><div class="resultados-cantos">' + data.cantos.map(c => {
       const bolillas = new Set(c.bolillas);
-      return `<article class="resultado-canto"><h3>${c.tipo === 'BINGO' ? 'Bingo' : 'Línea'} · ${escape(c.participante || 'Titular no informado')}</h3>
+      return `<article class="resultado-canto"><h3>${c.tipo === 'BINGO' ? 'Bingo' : c.tipo === 'SEGUNDA_LINEA' ? 'Segunda línea' : 'Primera línea'} · ${escape(c.participante || 'Titular no informado')}</h3>
         <p>${escape(c.evento.titulo)} · Ronda ${c.ronda + 1}<br>Serie ${c.numeroSerie} · Cartón ${c.numeroCarton}<br>${escape(new Date(c.cantadoEn).toLocaleString('es-AR'))}</p>
         <div class="resultado-celdas">${c.contenido.flat().map(n => `<span class="${n === null ? 'vacia' : bolillas.has(n) ? 'extraida' : ''}">${n === null ? '' : escape(n)}</span>`).join('')}</div>
         <details><summary>Ver bolillas extraídas al cantar</summary><p>${c.bolillas.map(escape).join(', ')}</p></details></article>`;

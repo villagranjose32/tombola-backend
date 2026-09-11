@@ -2,11 +2,18 @@ import { EventoEnVivo, Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { HttpError } from "../middleware/errorHandler";
 
+export const incluirGanadores = { historialCantos: {
+  orderBy: [{ cantadoEn: "asc" as const }, { id: "asc" as const }],
+  select: { id: true, tipo: true, ronda: true, numeroSerie: true, numeroCarton: true, participante: true },
+} };
+
 /** Una sola representación del estado confirmado para HTTP y WebSocket. */
-export function estadoEnVivo<T extends { id: string; bolillas: unknown; secuencia: number; actualizadoEn: Date }>(evento: T) {
+export function estadoEnVivo<T extends { id: string; bolillas: unknown; secuencia: number; actualizadoEn: Date; ronda?: number; historialCantos?: Array<{ ronda: number }> }>(evento: T) {
   const numerosExtraidos = evento.bolillas as number[];
+  const { historialCantos, ...datos } = evento;
   return {
-    ...evento,
+    ...datos,
+    historialGanadores: (historialCantos || []).filter(c => c.ronda === evento.ronda),
     salaId: evento.id,
     numeroActual: numerosExtraidos.length ? numerosExtraidos[numerosExtraidos.length - 1] : null,
     numerosExtraidos,
@@ -41,7 +48,7 @@ export async function modificarTablero<T>(sorteoId: string, modificar: (tx: Pris
 }
 
 export async function snapshotPorToken(linkToken: string) {
-  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken } });
+  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken }, include: incluirGanadores });
   if (evento) return estadoEnVivo(evento);
   const tablero = await prisma.tableroEnVivo.findFirst({ where: { sorteo: { linkToken } }, include: { sorteo: true } });
   if (!tablero) return null;

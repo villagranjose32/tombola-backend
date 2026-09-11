@@ -2,11 +2,13 @@
 (function (root) {
   'use strict';
   class LiveSync {
-    constructor({baseUrl, token, onState, onStatus, env = root}) {
+    constructor({baseUrl, token, onState, onStatus, onCommunity = () => {}, spectator = true, env = root}) {
       this.env = env;
       this.baseUrl = baseUrl;
       this.token = token;
       this.onState = onState;
+      this.onCommunity = onCommunity;
+      this.spectator = spectator;
       this.onStatus = onStatus;
       this.running = false;
       this.sequence = -1;
@@ -90,7 +92,7 @@
       if (!this.running || this.socket || this.env.navigator.onLine === false) return;
       this.clear('retry');
       let socket;
-      try { socket = new this.env.WebSocket(this.baseUrl.replace(/^http/, 'ws') + '/ws?sorteo=' + encodeURIComponent(this.token)); }
+      try { socket = new this.env.WebSocket(this.baseUrl.replace(/^http/, 'ws') + '/ws?sorteo=' + encodeURIComponent(this.token) + '&espectador=' + (this.spectator ? '1' : '0')); }
       catch { this.failedContact = true; this.status(); this.schedule(); return; }
       this.socket = socket;
       this.timer('open', () => this.fail(), 8000);
@@ -111,6 +113,7 @@
         let message;
         try { message = JSON.parse(event.data); } catch { return; }
         if (!message || typeof message !== 'object') return;
+        if (message.type === 'COMMUNITY_UPDATE') { this.onCommunity(message.comunidad); return; }
         if (message.type === 'PONG') { this.lastPong = this.now(); this.clear('pong'); return; }
         if (message.type === 'SYNC_ERROR') { this.fail(); this.pull(); return; }
         if (message.type === 'STATE_SNAPSHOT') this.accept(message, true, true);
@@ -136,6 +139,7 @@
           !message.salaId || !Array.isArray(message.numerosExtraidos) || typeof message.estado !== 'string' ||
           (this.state && message.salaId !== this.state.salaId)) return;
       if (message.secuencia < this.sequence) return;
+      if (message.comunidad) this.onCommunity(message.comunidad);
       if (!snapshot && message.secuencia === this.sequence) return;
       if (!snapshot && (this.sequence < 0 || message.secuencia !== this.sequence + 1 || !this.synced)) {
         this.requestSnapshot();

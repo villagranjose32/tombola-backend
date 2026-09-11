@@ -119,3 +119,28 @@ de la transacción de la sala, usando exclusivamente las bolillas persistidas.
 Devuelve `ganadores` y mantiene los campos del primer ganador para compatibilidad
 con las páginas anteriores. Las marcas manuales no validan un premio.
 `npm run test:bingo` comprueba seis casos de detección de ganadores.
+
+### Espectadores, avisos y premios en vivo
+
+La cabecera muestra las conexiones WebSocket de espectadores de la sala. Cada
+pestaña cuenta como una conexión; la pantalla del organizador envía
+`espectador=0` y no se suma. El heartbeat elimina conexiones que dejaron de
+responder. El contador se oculta mientras la conexión no está sincronizada.
+
+El dueño del evento puede publicar texto libre (1 a 280 caracteres) desde los
+controles. `POST /eventos-en-vivo/:id/mensaje` exige autenticación, aprobación y
+titularidad. El aviso se transmite con `COMMUNITY_UPDATE`, dura 8 segundos y un
+nuevo aviso reemplaza al anterior. Los snapshots HTTP y WS incluyen el aviso
+vigente para recuperar mensajes perdidos sin reiniciar su duración. Los avisos
+son temporales, en memoria, y se pierden al reiniciar el servidor. La presencia y
+los avisos corresponden a una instancia, igual que el transporte WS actual.
+
+El panel debajo del tablero muestra nombre, serie y cartón de todos los cantos
+validados en la ronda actual. `historialGanadores` se recupera desde CantoBingo,
+independientemente de la pausa: reanudar no borra premios; una nueva ronda limpia
+el panel y conserva los resultados anteriores en el historial. `SEGUNDA_LINEA`
+requiere dos filas completas del mismo cartón contra las bolillas del servidor.
+No requiere una migración: el tipo de canto ya es un campo de texto.
+
+Prueba de navegador centrada en la pantalla en vivo (incluye avisos, formulario
+del organizador y pantalla móvil): `node tests/live-browser.cjs --live-only`.

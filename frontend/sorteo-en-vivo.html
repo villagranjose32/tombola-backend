@@ -96,7 +96,44 @@
   .claim-panel{display:none;border:2px solid var(--gold);background:linear-gradient(145deg,rgba(240,199,94,.16),var(--felt));margin-bottom:14px}.claim-panel.show{display:block}.claim-title{font-family:var(--disp);font-size:22px;color:var(--gold);margin-bottom:5px}.claim-meta{font:11px var(--mono);color:rgba(246,241,228,.7);margin-bottom:12px}.claim-panel .live-cards{grid-template-columns:minmax(260px,420px)}
   @media (max-width:650px){.live-cards{grid-template-columns:1fr}}
 
+  /* Bolillas de billar: centro claro y el mismo color para cada número. */
+  .mini-ball, .hist-ball.filled, .current-ball:not(.empty), .board .n.called{
+    background:radial-gradient(circle at center,#fffaf0 0 40%,transparent 42%),radial-gradient(circle at 28% 20%,#ffffffb3,transparent 48%),var(--ball-color,#e6af18);
+    color:#15221e;border:1px solid #ffffff50;
+    box-shadow:inset -3px -5px 8px #00000045,inset 2px 2px 4px #ffffff45,0 3px 5px #00000030;
+    font-weight:800;
+  }
+  .mini-ball{font-size:8px;box-shadow:inset -2px -2px 3px #00000040,0 1px 3px #00000040}
+  .current-ball:not(.empty){border:4px solid var(--paper);box-shadow:inset -5px -8px 12px #00000050,0 8px 24px #00000060}
+  .board .n.last{box-shadow:0 0 0 3px var(--gold),0 0 14px #f0c75e70,inset -2px -3px 5px #00000040}
+  .rep-grid .n.c1,.rep-grid .n.c2,.rep-grid .n.win{
+    background:radial-gradient(circle at 25% 15%,#ffffffaa,transparent 65%),var(--ball-color,#e6af18);
+    color:#fff;border:1px solid #ffffff60;text-shadow:0 1px 3px #000;
+  }
+  .rep-grid .n .cnt{background:#14231ce6;color:#fff;border-radius:8px;padding:1px 4px;text-shadow:none;opacity:1}
+  #historialCartones .sub-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #historialCartones .sub-controls button{
+    min-height:58px;border:1px solid #ffffff75;border-bottom:4px solid #00000035;border-radius:10px;
+    padding:10px 8px;font-family:var(--body);font-size:14px;font-weight:800;letter-spacing:.2px;
+    color:#102d27;background:linear-gradient(135deg,#9cf1d7,#45cda2);box-shadow:0 4px 10px #00000030;
+    transition:transform .15s ease,filter .15s ease;
+  }
+  #historialCartones #btnCantarSegundaLinea{background:linear-gradient(135deg,#c4dcff,#85b7fa);color:#112c50}
+  #historialCartones #btnCantarBingo{grid-column:1/-1;background:linear-gradient(120deg,#ffe693,#ffbc43);color:#412b05;font-size:20px;letter-spacing:1px}
+  #historialCartones .sub-controls button:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-2px)}
+  #historialCartones .sub-controls button:active:not(:disabled){transform:translateY(1px)}
+  #historialCartones .sub-controls button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+  #historialCartones .sub-controls button:disabled{opacity:.55;box-shadow:none}
+  #historialCartones .claim-icon{font-size:20px;margin-right:5px;vertical-align:middle}
+  @media(prefers-reduced-motion:reduce){#historialCartones .sub-controls button{transition:none;transform:none!important}}
+
   @media (prefers-reduced-motion: reduce){ .mini-ball, .rep-grid .n.win, .current-ball.pop{ animation:none !important; } }
+  header{position:relative;padding-top:46px}
+  .audiencia{position:absolute;top:10px;right:14px;font:11px var(--mono);border:1px solid var(--line);border-radius:20px;padding:7px 10px;color:var(--teal);white-space:nowrap}
+  .aviso-espacio{position:sticky;top:0;z-index:60;pointer-events:none;min-height:64px;max-width:1180px;margin:auto;padding:6px 26px}
+  .aviso-organizador{padding:10px 14px;border:1px solid var(--gold);border-radius:6px;background:var(--felt);color:var(--gold);overflow-wrap:anywhere;white-space:pre-wrap;font-size:14px}
+  .ganadores-lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .premio{padding:10px;border:1px solid var(--line);border-radius:6px;font-size:12px;overflow-wrap:anywhere}.premio h3{margin:0 0 8px;color:var(--gold);font-size:13px}.premio p{margin:7px 0;line-height:1.5}
   [hidden]{display:none!important}
   #menuOrganizador{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;z-index:40;background:var(--ink);padding:12px 20px;border-bottom:1px solid var(--line)}
   #menuOrganizador a{flex-shrink:0;text-decoration:none;color:var(--paper);font:12px var(--mono);padding:12px;border-radius:6px}#menuOrganizador a[aria-current]{background:var(--marquee);color:var(--ink)}
@@ -116,6 +153,7 @@
     <h1 id="tituloSorteo">Bolillero</h1>
     <a id="enlaceResultados" href="#" hidden style="color:inherit">Resultados: líneas y bingos</a>
   </div>
+  <span id="audiencia" class="audiencia" title="Conexiones de espectadores; cada pestaña cuenta por separado" hidden>◉ 0 viendo</span>
 </header>
 <nav id="menuOrganizador" aria-label="Menú del organizador" hidden>
 <a href="/organizador.html?vista=dash">Panel organizador</a>
@@ -127,6 +165,7 @@
 <a href="/sorteo-en-vivo.html" aria-current="page">Sorteo en vivo</a></nav>
 <div id="conexionEnVivo" role="status" aria-live="polite" style="padding:10px 28px;" hidden></div>
 
+<div class="aviso-espacio"><div id="avisoOrganizador" class="aviso-organizador" role="status" aria-live="polite" hidden></div></div>
 <main>
   <div id="sidebarCartones">
     <!-- ORGANIZADOR: login -->
@@ -179,7 +218,7 @@
     <div class="panel" id="verificarSerieBox" style="display:none;"><h2>Control de ganador</h2><div class="field"><label>Número de serie</label><input id="serieControlNumero" type="number" min="1"></div><div class="field"><label>Número de cartón</label><input id="cartonControlNumero" type="number" min="1"></div><button class="btn btn-ghost btn-full" id="btnVerificarSerie">Ver cartón y marcas</button></div>
     <div id="zonaJuego">
       <div id="historialCartones" class="juego-cabecera" hidden>
-        <div class="sub-controls"><button id="btnCantarLinea">Cantar línea</button><button id="btnCantarBingo">Cantar bingo</button></div>
+        <div class="sub-controls"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar línea</button><button id="btnCantarSegundaLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar 2ª línea</button><button id="btnCantarBingo"><span class="claim-icon" aria-hidden="true">🏆</span>¡Cantar bingo!</button></div>
         <div id="reclamoMsg" role="status"></div>
       </div>
       <div class="live-series sidebar-cartones" id="cartonesEnVivo"></div>
@@ -188,7 +227,6 @@
 
   <div>
     <div class="winner-banner" id="winnerBanner"></div>
-    <div class="panel claim-panel" id="reclamoPublico"></div>
     <div class="panel" id="cagePanel" style="display:none;">
       <h2>Bolillero</h2>
       <div class="bolillero-layout"><div class="cage-wrap">
@@ -228,6 +266,13 @@
         <input type="range" id="speedRange" min="1" max="8" step="0.2" value="2.4">
       </div>
       <button class="btn btn-ghost btn-full" id="btnReconfigurar" style="margin-top:8px;">⚙ Reconfigurar (reinicia todo)</button>
+      <form id="formMensaje" style="margin-top:14px">
+        <label for="textoMensaje">Mensaje para todos</label>
+        <input id="textoMensaje" maxlength="280" required placeholder="Escribí tu mensaje…" autocomplete="off">
+        <div class="hint">Se mostrará durante 8 segundos.</div>
+        <button class="btn btn-primary btn-full" id="btnEnviarMensaje" style="margin-top:8px">Enviar mensaje</button>
+        <p id="mensajeEnvioEstado" role="status"></p>
+      </form>
       <div class="link-share" id="linkCompartir"></div>
     </div>
 
@@ -237,6 +282,10 @@
       <h2 id="boardTitle">Tablero</h2>
       <div id="board"></div>
     </div>
+    <section class="panel" id="ganadoresPanel" hidden aria-label="Ganadores de esta ronda">
+      <h2>Ganadores de esta ronda</h2><div id="ganadoresLista" class="ganadores-lista" aria-live="polite"></div>
+    </section>
+    <div class="panel claim-panel" id="reclamoPublico"></div>
   </div>
 </main>
 
@@ -287,6 +336,7 @@
   }
 
   document.getElementById('btnCargarSorteo').addEventListener('click', async () => {
+    limpiarComunidad();
     liveSync?.stop(); liveSync = null; pararAutoplay();
     const sorteoGuardadoId = document.getElementById('selectSorteo').value;
     if (!sorteoGuardadoId) return;
@@ -336,6 +386,7 @@
   });
 
   document.getElementById('btnNuevoEvento').addEventListener('click', () => {
+    limpiarComunidad();
     liveSync?.stop(); liveSync = null;
     sorteoId = null; sorteoToken = null; estado = null;
     construirCage();
@@ -480,6 +531,62 @@
     document.getElementById('volVal').textContent = e.target.value;
   });
 
+  let avisoTimer;
+  function nombrePremio(tipo) { return ({LINEA:'Primera línea', SEGUNDA_LINEA:'Segunda línea', BINGO:'Bingo'})[tipo] || tipo; }
+  function mostrarComunidad(comunidad) {
+    if (!comunidad) return;
+    const contador = document.getElementById('audiencia');
+    contador.textContent = `◉ ${comunidad.espectadores} viendo`;
+    contador.hidden = liveSync?.socket?.readyState !== 1;
+    const aviso = document.getElementById('avisoOrganizador');
+    clearTimeout(avisoTimer);
+    const restante = comunidad.aviso ? comunidad.aviso.expiraEn - Date.now() : 0;
+    aviso.hidden = restante <= 0;
+    if (restante > 0) {
+      if (aviso.dataset.id !== comunidad.aviso.id) {
+        aviso.textContent = comunidad.aviso.texto;
+        aviso.dataset.id = comunidad.aviso.id;
+      }
+      avisoTimer = setTimeout(() => { aviso.hidden = true; }, Math.min(restante, 8000));
+    }
+  }
+  function limpiarComunidad() {
+    clearTimeout(avisoTimer);
+    document.getElementById('audiencia').hidden = true;
+    document.getElementById('avisoOrganizador').hidden = true;
+    document.getElementById('avisoOrganizador').dataset.id = '';
+    document.getElementById('ganadoresPanel').hidden = true;
+    document.getElementById('reclamoPublico').classList.remove('show');
+  }
+  function mostrarGanadores(evt) {
+    const panel = document.getElementById('ganadoresPanel');
+    panel.hidden = !evt.sorteoBingoId;
+    const lista = document.getElementById('ganadoresLista');
+    const html = ['LINEA','SEGUNDA_LINEA','BINGO'].map(tipo => {
+      const ganadores = (evt.historialGanadores || []).filter(g => g.tipo === tipo);
+      return `<div class="premio"><h3>${nombrePremio(tipo)}</h3>${ganadores.length ? ganadores.map(g => `<p><strong>${escapeHtml(g.participante || 'Participante')}</strong><br>Serie ${g.numeroSerie} · Cartón ${g.numeroCarton}</p>`).join('') : '<p>Esperando ganador</p>'}</div>`;
+    }).join('');
+    if (lista.innerHTML !== html) lista.innerHTML = html;
+  }
+  document.getElementById('formMensaje').addEventListener('submit', async e => {
+    e.preventDefault();
+    const campo = document.getElementById('textoMensaje');
+    const boton = document.getElementById('btnEnviarMensaje');
+    const salida = document.getElementById('mensajeEnvioEstado');
+    const texto = campo.value.trim();
+    if (!texto || !sorteoId || boton.disabled) return;
+    const eventoId = sorteoId;
+    boton.disabled = true; salida.textContent = 'Enviando…';
+    try {
+      const respuesta = await api(`/eventos-en-vivo/${eventoId}/mensaje`, {method:'POST', token:orgToken, body:{texto}});
+      if (sorteoId !== eventoId) return;
+      mostrarComunidad(respuesta.comunidad);
+      if (campo.value.trim() === texto) campo.value = '';
+      salida.textContent = 'Mensaje enviado.';
+    } catch (error) { salida.textContent = error.message; }
+    finally { boton.disabled = false; }
+  });
+
   /* ---------- espectador ---------- */
   async function conectarEspectador(token) {
     if (!token) return;
@@ -489,6 +596,7 @@
 
   function conectarWs(token) {
     if (liveSync?.token === token) { liveSync.start(); liveSync.recover(); return; }
+    limpiarComunidad();
     liveSync?.stop();
     Transparencia.organizador(API, `/vivo/${encodeURIComponent(token)}`);
     const resultados = document.getElementById('enlaceResultados');
@@ -498,9 +606,10 @@
       resultados.onclick = event => { event.preventDefault(); window.parent.document.getElementById('verResultados')?.click(); };
     }
     liveSync = new LiveSync({
-      baseUrl: API, token,
+      baseUrl: API, token, spectator: modoPantalla === 'espectador', onCommunity: mostrarComunidad,
       onStatus: ({text, stale}) => {
         const aviso = document.getElementById('conexionEnVivo');
+        document.getElementById('audiencia').hidden = stale;
         aviso.hidden = false;
         aviso.textContent = text + (stale ? ' · El tablero puede estar desactualizado.' : '');
         aviso.style.color = stale ? 'var(--marquee)' : 'var(--teal)';
@@ -532,6 +641,7 @@
         else mostrarBolillaGrande(estado.numeroActual, animate);
         pintarEstado(estado);
         if (animate) cantar(estado.numeroActual);
+        mostrarGanadores(estado);
         mostrarReclamo(estado);
         if (estado.estado !== 'EN_CURSO') pararAutoplay();
         autoplayBtn.disabled = estado.estado !== 'EN_CURSO';
@@ -621,37 +731,40 @@
     const extraidas = new Set(evt.bolillas || []);
     const ganadores = evt.cantos || [];
     const mostrar = ganadores.length > 0;
-    document.getElementById('cartonesEnVivo').hidden = mostrar;
+    document.getElementById('cartonesEnVivo').hidden = false;
     panel.classList.toggle('show', mostrar);
     if (!mostrar) { panel.innerHTML = ''; panel.dataset.cantos = ''; return; }
     const clave = JSON.stringify(ganadores);
-    const cambio = panel.dataset.cantos !== clave;
+
     panel.dataset.cantos = clave;
     panel.innerHTML = `<div class="claim-title">🏆 CANTOS VALIDADOS · Bolilla ${evt.numeroActual ?? ''}</div>` + ganadores.map(ganador => {
       const c = ganador.carton;
       const participante = ganador.participante ? ` · ${escapeHtml(ganador.participante)}` : '';
-      return `<div class="claim-meta"><strong>${ganador.tipo === 'BINGO' ? 'BINGO' : 'LÍNEA'}</strong> · Serie ${String(ganador.numeroSerie).padStart(3,'0')} · Cartón ${ganador.numeroCarton}${participante}</div>
+      return `<div class="claim-meta"><strong>${nombrePremio(ganador.tipo)}</strong> · Serie ${String(ganador.numeroSerie).padStart(3,'0')} · Cartón ${ganador.numeroCarton}${participante}</div>
         <div class="live-cards"><div class="live-card"><strong>Cartón ${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => n === null ? '<span class="live-cell blank"></span>' : `<span class="live-cell ${extraidas.has(n) ? 'mark' : ''}"><span class="cell-number">${n}</span>${extraidas.has(n) ? '<span class="mark-symbol">✓</span>' : ''}</span>`).join('')}</div></div></div>`;
     }).join('');
     panel.classList.add('show');
-    if (cambio) panel.scrollIntoView({behavior:'smooth',block:'start'});
+
   }
   async function cantarReclamo(tipo){
     try{
       const numerosSeries = [...seriesEspectador.keys()];
       if (!numerosSeries.length) throw new Error('Consultá tus cartones con tu DNI antes de cantar.');
       document.getElementById('btnCantarLinea').disabled = true;
+      document.getElementById('btnCantarSegundaLinea').disabled = true;
       document.getElementById('btnCantarBingo').disabled = true;
       const resultado=await api(`/vivo/${sorteoToken}/cantar`,{method:'POST',body:{tipo,numerosSeries}});
-      document.getElementById('reclamoMsg').textContent = `${tipo === 'BINGO' ? 'Bingo' : 'Línea'} validado.`;
+      document.getElementById('reclamoMsg').textContent = `${nombrePremio(tipo)} validado.`;
       liveSync?.accept(resultado, true, false);
     }catch(e){document.getElementById('reclamoMsg').textContent=e.message;}
     finally {
       document.getElementById('btnCantarLinea').disabled = false;
+      document.getElementById('btnCantarSegundaLinea').disabled = false;
       document.getElementById('btnCantarBingo').disabled = false;
     }
   }
   document.getElementById('btnCantarLinea').onclick=()=>cantarReclamo('LINEA');
+  document.getElementById('btnCantarSegundaLinea').onclick=()=>cantarReclamo('SEGUNDA_LINEA');
   document.getElementById('btnCantarBingo').onclick=()=>cantarReclamo('BINGO');
   document.getElementById('btnVerificarSerie').addEventListener('click',async()=>{ try{
     const numeroSerie=Number(document.getElementById('serieControlNumero').value),numeroCarton=Number(document.getElementById('cartonControlNumero').value);
@@ -662,6 +775,10 @@
   }catch(e){alert(e.message);} });
 
   /* ---------- render compartido ---------- */
+  function colorearBolilla(elemento, numero){
+    const colores = ['#e6af18','#2874d0','#dc4743','#8556bd','#eb8325','#25946e','#b94770','#394454'];
+    elemento.style.setProperty('--ball-color', colores[(numero - 1) % colores.length]);
+  }
   function construirCage(){
     const cage = document.getElementById('cage');
     cage.innerHTML = '';
@@ -674,7 +791,9 @@
       b.style.top = (110 + Math.sin(angle)*r - 11)+'px';
       b.style.animationDuration = (2.4 + Math.random()*1.6).toFixed(2)+'s';
       b.style.animationDelay = (Math.random()*2).toFixed(2)+'s';
-      b.textContent = pad(Math.floor(Math.random()*rango)+1, rango);
+      const numero = Math.floor(Math.random()*rango)+1;
+      b.textContent = pad(numero, rango);
+      colorearBolilla(b, numero);
       cage.appendChild(b);
     }
   }
@@ -689,6 +808,7 @@
   function mostrarBolillaGrande(numero, animar = true){
     const el = document.getElementById('currentBall');
     el.classList.remove('empty');
+    colorearBolilla(el, numero);
     el.textContent = pad(numero, (estado && estado.rangoMax) || 90);
     el.classList.toggle('wide', cifras((estado && estado.rangoMax) || 90) >= 3);
     void el.offsetWidth;
@@ -710,6 +830,7 @@
       const d = document.createElement('div');
       d.className = 'hist-ball' + (last5[i] ? ' filled' : '');
       d.textContent = last5[i] ? pad(last5[i], rango) : '·';
+      if (last5[i]) colorearBolilla(d, last5[i]);
       hist.appendChild(d);
     }
 
@@ -726,6 +847,7 @@
         const el = document.createElement('div');
         el.className = 'n' + (called.has(n) ? ' called' : '') + (n===last ? ' last' : '');
         el.textContent = pad(n, rango);
+        colorearBolilla(el, n);
         board.appendChild(el);
       }
     } else {
@@ -741,6 +863,7 @@
         if (e.ganadorNumero===n) cls += ' win';
         const el = document.createElement('div');
         el.className = cls;
+        colorearBolilla(el, n);
         el.innerHTML = pad(n, rango) + (c>0 ? '<span class="cnt">×'+c+'</span>' : '');
         board.appendChild(el);
       }

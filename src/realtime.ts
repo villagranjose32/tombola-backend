@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "http";
+import { cambiarEspectadores, comunidadEnVivo } from "./comunidad";
 import { snapshotPorToken } from "./utils/estadoEnVivo";
 
 const suscriptores = new Map<string, Set<WebSocket>>();
@@ -39,6 +40,9 @@ export function iniciarRealtime(server: Server, opciones: {
     if (!linkToken || linkToken.length > 300) { ws.close(1008, "Falta una sala válida"); return; }
     if (!suscriptores.has(linkToken)) suscriptores.set(linkToken, new Set());
     suscriptores.get(linkToken)!.add(ws);
+    const espectador = url.searchParams.get("espectador") !== "0";
+    if (espectador) cambiarEspectadores(linkToken, 1);
+    emitirCambio(linkToken, { type: "COMMUNITY_UPDATE", comunidad: comunidadEnVivo(linkToken) });
     let sincronizando = false;
     ws.on("pong", () => {
       clearTimeout(pendientes.get(ws));
@@ -59,7 +63,7 @@ export function iniciarRealtime(server: Server, opciones: {
         if (mensaje.salaId && mensaje.salaId !== snapshot.salaId && mensaje.salaId !== linkToken) {
           enviar(ws, { type: "SYNC_ERROR", error: "La sala no coincide" }); return;
         }
-        enviar(ws, { type: "STATE_SNAPSHOT", ...snapshot });
+        enviar(ws, { type: "STATE_SNAPSHOT", ...snapshot, comunidad: comunidadEnVivo(linkToken) });
       } catch (error) {
         console.error("Error al resincronizar sala:", error);
         enviar(ws, { type: "SYNC_ERROR", error: "No se pudo recuperar el estado" });
@@ -71,6 +75,8 @@ export function iniciarRealtime(server: Server, opciones: {
       const clientes = suscriptores.get(linkToken);
       clientes?.delete(ws);
       if (!clientes?.size) suscriptores.delete(linkToken);
+      if (espectador) cambiarEspectadores(linkToken, -1);
+      emitirCambio(linkToken, { type: "COMMUNITY_UPDATE", comunidad: comunidadEnVivo(linkToken) });
     });
   });
   return wss;
