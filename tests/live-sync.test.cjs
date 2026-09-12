@@ -127,3 +127,12 @@ test('HTTP pendiente se aborta al desmontar y no repinta después',async()=>{
  f.client.pull();const count=f.frames.length;f.client.stop();assert(signal.aborted);
  finish({ok:true,json:async()=>snapshot(10)});await f.clock.flush();assert.equal(f.frames.length,count);assert.equal(f.clock.tasks.size,0);
 });
+
+test('Cambiar o quitar la fecha se refleja aunque no cambie la secuencia de bolillas',async()=>{
+ const f=fixture();await f.start();
+ f.server=snapshot(0,{inicioProgramado:'2030-01-02T12:00:00Z'});
+ await f.clock.tick(5000);
+ assert.equal(f.frames.at(-1).s.inicioProgramado,'2030-01-02T12:00:00Z');assert.equal(f.client.sequence,0);assert.equal(f.frames.at(-1).m.animate,false);
+ f.server=snapshot(0,{inicioProgramado:null});await f.clock.tick(5000);
+ assert.equal(f.frames.at(-1).s.inicioProgramado,null);f.client.stop();
+});

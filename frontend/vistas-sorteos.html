@@ -256,6 +256,7 @@
 
         <div class="field" data-for="BINGO" style="display:none;"><label for="fAlias">Alias para transferencias (opcional)</label><input id="fAlias" maxlength="100" placeholder="mi.alias.bingo" autocomplete="off"></div>
         <div class="field" data-for="BINGO" style="display:none;"><label for="fCbu">CBU (opcional, 22 dígitos)</label><input id="fCbu" inputmode="numeric" maxlength="22" placeholder="Ingresá los 22 dígitos" autocomplete="off"></div>
+        <div class="field"><label for="fInicioProgramado">Fecha y hora del sorteo (opcional)</label><input id="fInicioProgramado" type="datetime-local"><small>Se mostrará una cuenta regresiva a los espectadores. Usá tu hora local.</small></div>
         <div class="field"><label>Cierre de inscripción (opcional)</label><input id="fFechaCierre" type="datetime-local"></div>
       </div>
       <div id="crearMsg" style="margin-top:14px;"></div>
@@ -700,7 +701,7 @@ function renderSorteoCard(s) {
     ${datosPublicos}
     <details><summary>Fotos de premios y cuenta regresiva</summary>
       <form onsubmit="guardarPresentacion(event, '${s.id}')">
-        <label>Inicio programado (opcional)<input type="datetime-local" name="inicio" value="${fechaLocal(s.config?.presentacion?.inicioProgramado)}"></label>
+        <label>Fecha y hora del sorteo (opcional)<input type="datetime-local" name="inicio" value="${fechaLocal(s.config?.presentacion?.inicioProgramado)}"></label>
         <p>La cuenta regresiva es informativa. El organizador inicia el vivo.</p>
         <label>Agregar fotos de premios (máximo 4, JPG, PNG o WebP)<input type="file" name="fotos" accept="image/jpeg,image/png,image/webp" multiple onchange="prepararDescripcionesPremios(this)"></label>
         <div class="nuevos-premios"></div>
@@ -839,6 +840,7 @@ function editarBingo(id) {
   document.getElementById('fTitulo').value = bingo?.titulo || '';
   document.getElementById('fDescripcion').value = bingo?.descripcion || '';
   document.getElementById('fFechaCierre').value = fechaLocal(bingo?.fechaCierre);
+  document.getElementById('fInicioProgramado').value = fechaLocal(bingo?.config?.presentacion?.inicioProgramado);
   document.getElementById('fCartonesPorSerie').value = bingo?.config.cartonesPorSerie || 5;
   document.getElementById('fCantidadSeries').value = bingo?.config.cantidadSeries || 20;
   document.getElementById('fAlias').value = bingo?.config.alias || '';
@@ -885,7 +887,8 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
   } else {
     config = { cantidadGanadores: Number(document.getElementById('fGanadoresSimple').value) };
   }
-  const body = { tipo: tipoSeleccionado, titulo, descripcion, config };
+  const inicio = document.getElementById('fInicioProgramado').value;
+  const body = { tipo: tipoSeleccionado, titulo, descripcion, config, inicioProgramado: inicio ? new Date(inicio).toISOString() : null };
   if (fechaCierreVal) body.fechaCierre = new Date(fechaCierreVal).toISOString();
   else if (sorteoEnEdicion) body.fechaCierre = null;
   if (tipoSeleccionado === 'BINGO' && config.cbu && !/^[0-9]{22}$/.test(config.cbu)) { msg.innerHTML = banner('err','El CBU debe tener 22 dígitos, sin espacios.'); return; }

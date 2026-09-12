@@ -155,10 +155,7 @@
   }
   function actualizarCuenta() {
     if (!unificado) return;
-    const falta = new Date(inicioProgramado).getTime() - Date.now();
-    $('cuentaRegresiva').textContent = !inicioProgramado || enVivo ? '' : falta > 0
-      ? `El sorteo comienza en ${Math.floor(falta / 86400000)} días ${String(Math.floor(falta / 3600000) % 24).padStart(2, '0')}:${String(Math.floor(falta / 60000) % 60).padStart(2, '0')}:${String(Math.floor(falta / 1000) % 60).padStart(2, '0')}`
-      : 'Llegó la hora programada. Esperando que el organizador inicie el sorteo.';
+    CuentaRegresiva.pintar($('cuentaRegresiva'), inicioProgramado, !!enVivo?.iniciado || enVivo?.estado === 'FINALIZADO');
   }
   async function cambiarVista(nueva) {
     if (cargando) return;
@@ -186,8 +183,6 @@
       const boton = document.createElement('button'); boton.id = id; boton.textContent = nombre;
       boton.onclick = () => cambiarVista(destino); document.querySelector('.acciones').append(boton);
     }
-    const reloj = setInterval(actualizarCuenta, 1000);
-    window.addEventListener('pagehide', () => clearInterval(reloj), {once:true});
   }
   $('compartir').hidden = unificado;
   $('actualizar').hidden = unificado;
@@ -195,9 +190,33 @@
   $('actualizar').onclick = () => vista === 'vivo' ? cambiarVista('vivo') : cargar;
   if (vista === 'descarga') prepararDescarga();
   if (vista !== 'descarga') cargar();
+  let refrescandoPresentacion = false;
+  async function refrescarPresentacion() {
+    if (!unificado || refrescandoPresentacion) return;
+    refrescandoPresentacion = true;
+    try { presentar(await api(ruta)); }
+    catch { /* Mantener la fecha conocida si se interrumpe la conexión. */ }
+    finally { refrescandoPresentacion = false; }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refrescarPresentacion(); });
   // Actualiza disponibilidad y pagos aunque se haya interrumpido la conexión.
-  const timer = setInterval(() => {
-    if (!document.hidden && !$('reserva').open && ['tablero', 'resultado'].includes(vista)) cargar();
-  }, 15000);
-  window.addEventListener('pagehide', () => clearInterval(timer), {once:true});
+  function actualizarDesdeServidor() {
+    if (document.hidden || $('reserva').open) return;
+    if (vista === 'tablero') cargar();
+    else {
+      refrescarPresentacion();
+      if (vista === 'resultado') cargar();
+    }
+  }
+  let reloj, timer;
+  function detenerRelojes() { clearInterval(reloj); clearInterval(timer); }
+  function iniciarRelojes() {
+    detenerRelojes();
+    if (unificado) reloj = setInterval(actualizarCuenta, 1000);
+    timer = setInterval(actualizarDesdeServidor, 15000);
+    actualizarCuenta();
+  }
+  iniciarRelojes();
+  window.addEventListener('pagehide', detenerRelojes);
+  window.addEventListener('pageshow', () => { iniciarRelojes(); refrescarPresentacion(); });
 })();

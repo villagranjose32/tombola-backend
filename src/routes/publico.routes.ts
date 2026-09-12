@@ -35,9 +35,9 @@ publicoRouter.get(
     const presentacion = (sorteo.config as any).presentacion || { inicioProgramado: null, imagenesPremios: [] };
     const evento = await prisma.eventoEnVivo.findFirst({
       where: { sorteoBingoId: sorteo.id }, orderBy: { creadoEn: "desc" },
-      select: { linkToken: true, estado: true },
+      select: { linkToken: true, estado: true, bolillas: true },
     });
-    const publico = { presentacion, enVivo: evento };
+    const publico = { presentacion, enVivo: evento ? { linkToken: evento.linkToken, estado: evento.estado, iniciado: (evento.bolillas as number[]).length > 0 } : null };
     res.set("Cache-Control", "no-store");
 
     if (sorteo.tipo === "RIFA") {

@@ -233,8 +233,8 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
  });
  await t.test('Editar bingo y datos de cobro conserva series, pagos y presentación',async()=>{
    const headers={'Content-Type':'application/json',Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})};
-   const creado=await fetch(base+'/sorteos',{method:'POST',headers,body:JSON.stringify({tipo:'BINGO',titulo:'Bingo editable',config:{cartonesPorSerie:3,cantidadSeries:1,alias:'bingo.inicial',cbu:'0123456789012345678901'}})});
-   assert.equal(creado.status,201);const bingo=await creado.json();
+   const creado=await fetch(base+'/sorteos',{method:'POST',headers,body:JSON.stringify({tipo:'BINGO',titulo:'Bingo editable',inicioProgramado:'2030-01-02T12:00:00Z',config:{cartonesPorSerie:3,cantidadSeries:1,alias:'bingo.inicial',cbu:'0123456789012345678901'}})});
+   assert.equal(creado.status,201);const bingo=await creado.json();assert.equal(bingo.config.presentacion.inicioProgramado,'2030-01-02T12:00:00Z');
    const patch=body=>fetch(base+'/sorteos/'+bingo.id,{method:'PATCH',headers,body:JSON.stringify(body)});
    try {
      assert.equal((await patch({config:{cantidadSeries:2}})).status,200);
@@ -243,8 +243,8 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      const series=await prisma.serie.findMany({where:{sorteoId:bingo.id},include:{cartones:true},orderBy:{numero:'asc'}});assert.equal(series.length,2);
      await prisma.serie.update({where:{id:series[0].id},data:{estado:'TOMADO'}});
      await prisma.sorteo.update({where:{id:bingo.id},data:{config:{...activo.config,presentacion:{inicioProgramado:null,imagenesPremios:[]}}}});
-     const guardado=await patch({titulo:'Bingo actualizado',descripcion:'Nueva descripción',fechaCierre:null,config:{alias:'nuevo.alias',cbu:'0012345678901234567890'}});assert.equal(guardado.status,200);
-     const actualizado=await guardado.json();assert.deepEqual(actualizado.config.presentacion,{inicioProgramado:null,imagenesPremios:[]});assert.equal(actualizado.linkToken,activo.linkToken);
+     const guardado=await patch({titulo:'Bingo actualizado',descripcion:'Nueva descripción',fechaCierre:null,inicioProgramado:'2030-02-03T18:30:00Z',config:{alias:'nuevo.alias',cbu:'0012345678901234567890'}});assert.equal(guardado.status,200);
+     const actualizado=await guardado.json();assert.deepEqual(actualizado.config.presentacion,{inicioProgramado:'2030-02-03T18:30:00Z',imagenesPremios:[]});assert.equal(actualizado.linkToken,activo.linkToken);
      const despues=await prisma.serie.findMany({where:{sorteoId:bingo.id},include:{cartones:true},orderBy:{numero:'asc'}});
      assert.deepEqual(despues.map(s=>s.cartones),series.map(s=>s.cartones));assert.equal(despues[0].estado,'TOMADO');
      assert.equal((await patch({config:{cantidadSeries:3}})).status,409);
@@ -260,6 +260,14 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      const identidad=await (await fetch(base+'/s/'+activo.linkToken+'/organizador')).json();assert.deepEqual(identidad.pago,{alias:'nuevo.alias',cbu:'0012345678901234567890'});
      const sala=await prisma.eventoEnVivo.create({data:{organizadorId:user.id,sorteoBingoId:bingo.id,titulo:'Sala',linkToken:crypto.randomUUID()}});
      assert.deepEqual((await(await fetch(base+'/vivo/'+sala.linkToken+'/organizador')).json()).pago,identidad.pago);
+     const publico=await(await fetch(base+'/s/'+activo.linkToken)).json();
+     assert.equal(publico.presentacion.inicioProgramado,'2030-02-03T18:30:00Z');assert.equal(publico.enVivo.iniciado,false);
+     assert.equal((await(await fetch(base+'/vivo/'+sala.linkToken)).json()).inicioProgramado,'2030-02-03T18:30:00Z');
+     await prisma.eventoEnVivo.update({where:{id:sala.id},data:{bolillas:[1]}});
+     assert.equal((await(await fetch(base+'/s/'+activo.linkToken)).json()).enVivo.iniciado,true);
+     assert.equal((await patch({inicioProgramado:null})).status,200);
+     assert.equal((await(await fetch(base+'/vivo/'+sala.linkToken)).json()).inicioProgramado,null);
+
      assert.equal((await patch({config:{alias:'',cbu:''}})).status,200);
      assert.equal((await(await fetch(base+'/s/'+activo.linkToken+'/organizador')).json()).pago,undefined);
    } finally {await fetch(base+'/sorteos/'+bingo.id,{method:'DELETE',headers});}

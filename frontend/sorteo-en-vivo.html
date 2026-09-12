@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/cuenta-regresiva.js"></script>
 <script src="/live-sync.js"></script>
 <script src="/bingo-voz.js"></script>
 <title>Bingo Virtual — Sorteo en vivo</title>
@@ -174,6 +175,7 @@
 <div id="conexionEnVivo" role="status" aria-live="polite" style="padding:10px 28px;" hidden></div>
 
 <div class="aviso-espacio"><div id="avisoOrganizador" class="aviso-organizador" role="status" aria-live="polite" hidden></div></div>
+<p id="cuentaRegresivaVivo" class="cuenta-regresiva" role="timer" hidden></p>
 <main>
   <div id="sidebarCartones">
     <!-- ORGANIZADOR: login -->
@@ -685,6 +687,7 @@
       onState: (snapshot, {animate}) => {
         const anterior = estado;
         estado = {...snapshot, bolillas: snapshot.numerosExtraidos};
+        actualizarCuentaVivo();
         const nuevaRonda = anterior && anterior.ronda !== undefined && anterior.ronda !== estado.ronda;
         if (nuevaRonda) {
           seriesEspectador.forEach(data => { data.marcas = {}; });
@@ -720,9 +723,21 @@
     });
     liveSync.start();
   }
+  function actualizarCuentaVivo() {
+    const cuenta = document.getElementById('cuentaRegresivaVivo');
+    if (modoPantalla !== 'espectador' || !estado) { cuenta.hidden = true; return; }
+    CuentaRegresiva.pintar(cuenta, estado.inicioProgramado, (estado.numerosExtraidos || []).length > 0 || estado.estado === 'FINALIZADO');
+  }
+  let relojCuentaVivo = setInterval(actualizarCuentaVivo, 1000);
+  window.addEventListener('pageshow', () => {
+    clearInterval(relojCuentaVivo);
+    relojCuentaVivo = setInterval(actualizarCuentaVivo, 1000);
+    actualizarCuentaVivo();
+  });
   // pagehide también cubre navegación y bfcache; pageshow restaura una única instancia.
   window.addEventListener('pagehide', () => {
     liveSync?.stop();
+    clearInterval(relojCuentaVivo);
     pararAutoplay();
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   });

@@ -8,3 +8,7 @@
 #datosOrganizador .copiar-pago{padding:8px 12px;border:1px solid #ffffff60;border-radius:6px;background:#245ec2;color:white;font:600 13px system-ui,sans-serif;cursor:pointer}
 #datosOrganizador .datos-pago p{margin:8px 0 0;font-size:12px}
 #datosOrganizador a:focus-visible,#datosOrganizador button:focus-visible{outline:3px solid white;outline-offset:3px}
+
+.cuenta-regresiva{box-sizing:border-box;max-width:1128px;margin:18px auto;padding:18px 20px;border:1px solid #adc9ff;border-radius:12px;background:linear-gradient(135deg,#235bbb,#173b78);color:#fff;font:700 clamp(14px,3vw,18px)/1.7 system-ui,sans-serif;text-align:center;box-shadow:inset 0 1px 1px #ffffff60,0 4px 0 #102751;white-space:normal}
+.cuenta-regresiva[hidden]{display:none}
+@media(max-width:650px){#cuentaRegresivaVivo{margin:14px 26px}}

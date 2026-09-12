@@ -2,17 +2,19 @@ import { EventoEnVivo, Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { HttpError } from "../middleware/errorHandler";
 
-export const incluirGanadores = { historialCantos: {
+export const incluirGanadores = { sorteoBingo: { select: { config: true } }, historialCantos: {
   orderBy: [{ cantadoEn: "asc" as const }, { id: "asc" as const }],
   select: { id: true, tipo: true, ronda: true, numeroSerie: true, numeroCarton: true, participante: true },
 } };
 
 /** Una sola representación del estado confirmado para HTTP y WebSocket. */
-export function estadoEnVivo<T extends { id: string; bolillas: unknown; secuencia: number; actualizadoEn: Date; ronda?: number; historialCantos?: Array<{ ronda: number }> }>(evento: T) {
+export function estadoEnVivo<T extends { id: string; bolillas: unknown; secuencia: number; actualizadoEn: Date; ronda?: number; historialCantos?: Array<{ ronda: number }>; sorteoBingo?: { config: unknown } | null }>(evento: T) {
   const numerosExtraidos = evento.bolillas as number[];
-  const { historialCantos, ...datos } = evento;
+  const { historialCantos, sorteoBingo, ...datos } = evento;
+  const presentacion = (sorteoBingo?.config as { presentacion?: { inicioProgramado?: string | null } } | undefined)?.presentacion;
   return {
     ...datos,
+    inicioProgramado: presentacion?.inicioProgramado || null,
     historialGanadores: (historialCantos || []).filter(c => c.ronda === evento.ronda),
     salaId: evento.id,
     numeroActual: numerosExtraidos.length ? numerosExtraidos[numerosExtraidos.length - 1] : null,

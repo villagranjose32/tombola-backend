@@ -36,6 +36,7 @@ const crearSorteoSchema = z.object({
   titulo: z.string().trim().min(3),
   descripcion: z.string().trim().optional(),
   fechaCierre: z.string().datetime().nullable().optional(),
+  inicioProgramado: z.string().datetime().nullable().optional(),
   config: z.record(z.any()),
 });
 
@@ -60,14 +61,15 @@ sorteosRouter.post(
       const candidatos = await tx.sorteo.findMany({where: {organizadorId: req.usuario!.sub, tipo: datos.tipo}});
       const existente = candidatos.find(s => {
         if (normalizar(s.titulo) !== normalizar(datos.titulo) || normalizar(s.descripcion) !== normalizar(datos.descripcion) ||
-            s.fechaCierre?.getTime() !== fechaCierre?.getTime()) return false;
+            s.fechaCierre?.getTime() !== fechaCierre?.getTime() ||
+            ((s.config as any).presentacion?.inicioProgramado || null) !== (datos.inicioProgramado || null)) return false;
         try { return JSON.stringify(validarConfigPorTipo(s.tipo, s.config)) === JSON.stringify(config); }
         catch { return false; }
       });
       if (existente) return {sorteo: existente, creado: false};
       const sorteo = await tx.sorteo.create({data: {
         organizadorId: req.usuario!.sub, tipo: datos.tipo, titulo: datos.titulo,
-        descripcion: datos.descripcion, fechaCierre, config, estado: "BORRADOR",
+        descripcion: datos.descripcion, fechaCierre, config: { ...config, ...(datos.inicioProgramado ? { presentacion: { inicioProgramado: datos.inicioProgramado, imagenesPremios: [] } } : {}) }, estado: "BORRADOR",
       }});
       return {sorteo, creado: true};
     });
@@ -258,7 +260,10 @@ sorteosRouter.patch("/:id", asyncHandler(async (req, res) => {
     return tx.sorteo.update({ where: { id: sorteo.id }, data: {
       titulo: datos.titulo, descripcion: datos.descripcion,
       fechaCierre: datos.fechaCierre === undefined ? undefined : datos.fechaCierre ? new Date(datos.fechaCierre) : null,
-      ...(config ? { config: { ...anterior, ...config } } : {}),
+      ...(config || datos.inicioProgramado !== undefined ? { config: {
+        ...anterior, ...config,
+        ...(datos.inicioProgramado !== undefined ? { presentacion: { ...(anterior.presentacion || { imagenesPremios: [] }), inicioProgramado: datos.inicioProgramado } } : {}),
+      } } : {}),
     } });
   });
   res.json(actualizado);

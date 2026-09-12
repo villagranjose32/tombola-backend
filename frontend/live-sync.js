@@ -154,7 +154,7 @@
         this.synced = true;
         this.attempt = 0;
       }
-      if (message.secuencia > this.sequence) {
+      if (message.secuencia > this.sequence || (snapshot && message.inicioProgramado !== this.state?.inicioProgramado)) {
         const animate = !snapshot && this.sequence >= 0 && message.accion === 'extraida';
         this.sequence = message.secuencia;
         this.state = message;
