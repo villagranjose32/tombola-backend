@@ -27,6 +27,13 @@ test('Informa cuándo termina el dictado para reanudar el bolillero', () => {
   assert.equal(finales,0);calls[0].onend();assert.equal(finales,1);
 });
 
+test('La opción masculina usa una modulación grave y más lenta', () => {
+  const calls=[];
+  const env={speechSynthesis:{cancel:()=>{},speak:u=>calls.push(u)},SpeechSynthesisUtterance:class {constructor(text){this.text=text;}}};
+  voz.cantar(33,{gender:'masculina'},env);
+  assert.equal(calls[0].pitch,.65);assert.equal(calls[0].rate,.9);
+});
+
 test('Lee avisos completos y al terminar canta únicamente la última bolilla pendiente',()=>{
  const calls=[];
  const env={speechSynthesis:{cancel:()=>calls.push('cancel'),speak:u=>calls.push(u)},SpeechSynthesisUtterance:class {constructor(text){this.text=text;}}};

@@ -28,8 +28,8 @@
     const utter = new env.SpeechSynthesisUtterance(texto);
     if (voice?.lang?.toLowerCase().startsWith('es')) utter.voice = voice;
     utter.lang = utter.voice?.lang || 'es-ES';
-    utter.pitch = gender === 'femenina' ? 1.15 : 0.85;
-    utter.rate = 0.95;
+    utter.pitch = gender === 'femenina' ? 1.1 : 0.65;
+    utter.rate = gender === 'masculina' ? 0.9 : 0.95;
     utter.volume = volume;
     return utter;
   }

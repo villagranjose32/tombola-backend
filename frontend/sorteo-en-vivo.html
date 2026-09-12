@@ -263,8 +263,6 @@
     </section>
     <div class="panel" id="cagePanel" style="display:none;">
       <h2>Bolillero</h2>
-      <label class="opcion-voz"><input type="checkbox" id="sonidoBolillero">Sonido de las bolillas</label>
-      <p class="hint" id="estadoSonidoBolillero" role="status">Activá el sonido para escuchar las bolillas al girar.</p>
       <p id="bolillasRestantes" class="hint"></p>
       <div class="bolillero-layout"><div class="cage-wrap">
         <div class="cage" id="cage" role="img" aria-label="Bolillero tridimensional"></div>
@@ -899,22 +897,6 @@
     pintarCartones({...data,cartones:[carton]},false);
   }catch(e){alert(e.message);} });
 
-  const sonidoBolillero = document.getElementById('sonidoBolillero');
-  if (!window.AudioContext && !window.webkitAudioContext) {
-    sonidoBolillero.disabled = true;
-    document.getElementById('estadoSonidoBolillero').textContent = 'El sonido no está disponible en este navegador.';
-  }
-  sonidoBolillero.addEventListener('change', async () => {
-    if (!sonidoBolillero.checked) {
-      efectosBolillero.silenciar();
-      document.getElementById('estadoSonidoBolillero').textContent = 'Sonido silenciado.';
-      return;
-    }
-    const activo = await efectosBolillero.activarSonido();
-    if (!sonidoBolillero.checked) { efectosBolillero.silenciar(); return; }
-    sonidoBolillero.checked = activo;
-    document.getElementById('estadoSonidoBolillero').textContent = activo ? 'Sonido activado para las próximas bolillas.' : 'No se pudo activar el sonido. Tocá la casilla para volver a intentar.';
-  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       efectosBolillero.cancelar();
@@ -1034,11 +1016,16 @@
   if ('speechSynthesis' in window) { loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
   function pickVoice(gender){
     const esVoices = voicesCache.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
-    const pool = esVoices;
     const femaleHints=['female','mujer','mónica','monica','paulina','lucia','lucía','helena','laura','elvira','conchita','isabel','sabina'];
-    const maleHints=['male','hombre','jorge','diego','carlos','enrique','pablo','juan','miguel'];
+    const maleHints=['male','hombre','jorge','diego','carlos','enrique','pablo','juan','miguel','álvaro','alvaro','raúl','raul','darío','dario','federico','gonzalo'];
     const hints = gender==='femenina' ? femaleHints : maleHints;
-    return pool.find(v => hints.some(h => v.name.toLowerCase().includes(h))) || pool[0] || null;
+    const identificada = esVoices.find(v => hints.some(h => v.name.toLowerCase().includes(h)));
+    if (identificada) return identificada;
+    if (gender === 'masculina') {
+      const noFemenina = esVoices.find(v => !femaleHints.some(h => v.name.toLowerCase().includes(h)));
+      return noFemenina || esVoices[1] || esVoices[0] || null;
+    }
+    return esVoices[0] || null;
   }
   document.getElementById('voiceGender').addEventListener('change', () => {
     BingoVoz.cancelar();

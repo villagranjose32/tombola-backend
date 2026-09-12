@@ -94,8 +94,7 @@ app.use(express.static(path.resolve(__dirname,'../frontend')));
  await wait('document.getElementById("conexionEnVivo").textContent === "En vivo"');assert.equal(connections,count+1);assert.equal(wss.clients.size,1);
  console.log('OK: pagehide/pageshow cierra y restaura una única conexión.');
  assert.deepEqual(await evaluate('window.locuciones'),[]);
- await evaluate('window.golpesAudio=0;const crearOscilador=AudioContext.prototype.createOscillator;AudioContext.prototype.createOscillator=function(){window.golpesAudio++;return crearOscilador.call(this)};document.getElementById("sonidoBolillero").click()');
- await wait('document.getElementById("estadoSonidoBolillero").textContent.includes("Sonido activado")');
+ assert.equal(await evaluate('document.getElementById("sonidoBolillero")'),null);
  state={...state,secuencia:13,numeroActual:22,numerosExtraidos:[22],accion:'extraida'};
  for(const client of wss.clients)client.send(JSON.stringify({...state,type:'STATE_UPDATE'}));
  await wait('document.getElementById("cage").classList.contains("spinning")');
@@ -103,13 +102,10 @@ app.use(express.static(path.resolve(__dirname,'../frontend')));
  assert.equal(await evaluate('document.querySelectorAll("#board .called").length'),0);
  await wait('window.locuciones.length === 1');
  assert.equal(await evaluate('document.getElementById("cage").classList.contains("spinning")'),false);
- assert.equal(await evaluate('window.golpesAudio'),10);
  assert.equal(await evaluate('document.querySelectorAll("#cage .mini-ball").length'),89);
  assert.equal(await evaluate('[...document.querySelectorAll("#cage .mini-ball")].some(b=>b.dataset.numero==="22")'),false);
  console.log('OK: bolillas reales sin duplicados; la extraída desaparece y el reinicio repone todas.');
- await evaluate('document.getElementById("sonidoBolillero").click()');
- assert.equal(await evaluate('document.getElementById("sonidoBolillero").checked'),false);
- console.log('OK: giro 3D antes de revelar la bolilla, diez impactos de audio y opción de silenciar.');
+ console.log('OK: giro 3D antes de revelar la bolilla, sin sonido ni control de audio.');
 
  assert.deepEqual(await evaluate('window.locuciones'),['Veintidós, los patos.']);
  for(const client of wss.clients){client.send(JSON.stringify({...state,type:'STATE_UPDATE'}));client.send(JSON.stringify({...state,secuencia:12,type:'STATE_UPDATE'}));}
