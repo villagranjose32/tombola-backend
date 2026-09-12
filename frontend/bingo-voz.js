@@ -22,20 +22,53 @@
     const texto = numeroATexto(n);
     return texto ? texto[0].toUpperCase() + texto.slice(1) + ', ' + significados[n] + '.' : null;
   }
-  function cantar(n, {gender, voice, volume = 1}, env = root) {
-    const texto = frase(n);
-    if (!env.speechSynthesis) return;
-    env.speechSynthesis.cancel();
-    if (!texto || gender === 'ninguna') return;
+  const mensajes = new WeakMap();
+  function locucion(texto, {gender, voice, volume = 1}, env) {
     const utter = new env.SpeechSynthesisUtterance(texto);
     if (voice?.lang?.toLowerCase().startsWith('es')) utter.voice = voice;
     utter.lang = utter.voice?.lang || 'es-ES';
     utter.pitch = gender === 'femenina' ? 1.15 : 0.85;
     utter.rate = 0.95;
     utter.volume = volume;
-    env.speechSynthesis.speak(utter);
+    return utter;
   }
-  const api = {numeroATexto, frase, cantar};
+  function cancelar(env = root) {
+    mensajes.delete(env);
+    env.speechSynthesis?.cancel();
+  }
+  function cantar(n, opciones, env = root) {
+    const texto = frase(n);
+    if (!env.speechSynthesis) return;
+    const activo = mensajes.get(env);
+    if (activo) { activo.numeroPendiente = {n, opciones}; return; }
+    cancelar(env);
+    if (!texto || opciones.gender === 'ninguna') return;
+    env.speechSynthesis.speak(locucion(texto, opciones, env));
+  }
+  function leerMensaje(texto, opciones, env = root) {
+    if (!env.speechSynthesis || !env.SpeechSynthesisUtterance || !texto?.trim() || opciones.gender === 'ninguna') return;
+    const pendiente = mensajes.get(env)?.numeroPendiente;
+    cancelar(env);
+    const activo = {numeroPendiente: pendiente};
+    mensajes.set(env, activo);
+    const terminar = error => {
+      if (mensajes.get(env) !== activo) return;
+      mensajes.delete(env);
+      if (error) opciones.onError?.();
+      if (activo.numeroPendiente) cantar(activo.numeroPendiente.n, activo.numeroPendiente.opciones, env);
+    };
+    const utter = locucion(texto, opciones, env);
+    utter.onend = () => terminar(false);
+    utter.onerror = () => terminar(true);
+    try { env.speechSynthesis.speak(utter); } catch { terminar(true); }
+  }
+  function silenciarMensajes(env = root) {
+    const activo = mensajes.get(env);
+    if (!activo) return;
+    cancelar(env);
+    if (activo.numeroPendiente) cantar(activo.numeroPendiente.n, activo.numeroPendiente.opciones, env);
+  }
+  const api = {numeroATexto, frase, cantar, leerMensaje, cancelar, silenciarMensajes, mensajeActivo: (env = root) => mensajes.has(env)};
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.BingoVoz = api;
 })(typeof window === 'undefined' ? globalThis : window);

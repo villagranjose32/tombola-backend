@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 
 const espectadores = new Map<string, number>();
-const avisos = new Map<string, { id: string; texto: string; expiraEn: number }>();
+const avisos = new Map<string, { id: string; texto: string; expiraEn: number; leerEnVozAlta: boolean }>();
 
 export function comunidadEnVivo(token: string) {
   const aviso = avisos.get(token);
@@ -15,8 +15,8 @@ export function cambiarEspectadores(token: string, cambio: number) {
   return comunidadEnVivo(token);
 }
 
-export function publicarAviso(token: string, texto: string) {
-  const aviso = { id: randomUUID(), texto, expiraEn: Date.now() + 8000 };
+export function publicarAviso(token: string, texto: string, leerEnVozAlta = false) {
+  const aviso = { id: randomUUID(), texto, leerEnVozAlta, expiraEn: Date.now() + 8000 };
   avisos.set(token, aviso);
   setTimeout(() => { if (avisos.get(token)?.id === aviso.id) avisos.delete(token); }, 8000).unref();
   return comunidadEnVivo(token);

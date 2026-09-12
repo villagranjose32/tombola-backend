@@ -113,7 +113,7 @@
         let message;
         try { message = JSON.parse(event.data); } catch { return; }
         if (!message || typeof message !== 'object') return;
-        if (message.type === 'COMMUNITY_UPDATE') { this.onCommunity(message.comunidad); return; }
+        if (message.type === 'COMMUNITY_UPDATE') { this.onCommunity(message.comunidad, {live: this.synced}); return; }
         if (message.type === 'PONG') { this.lastPong = this.now(); this.clear('pong'); return; }
         if (message.type === 'SYNC_ERROR') { this.fail(); this.pull(); return; }
         if (message.type === 'STATE_SNAPSHOT') this.accept(message, true, true);
@@ -139,7 +139,7 @@
           !message.salaId || !Array.isArray(message.numerosExtraidos) || typeof message.estado !== 'string' ||
           (this.state && message.salaId !== this.state.salaId)) return;
       if (message.secuencia < this.sequence) return;
-      if (message.comunidad) this.onCommunity(message.comunidad);
+      if (message.comunidad) this.onCommunity(message.comunidad, {live: false});
       if (!snapshot && message.secuencia === this.sequence) return;
       if (!snapshot && (this.sequence < 0 || message.secuencia !== this.sequence + 1 || !this.synced)) {
         this.requestSnapshot();

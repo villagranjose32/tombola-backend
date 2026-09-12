@@ -144,9 +144,11 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
    const received=message(spectator,x=>x.type==='COMMUNITY_UPDATE'&&x.comunidad.aviso);
    const sent=await request('mensaje',{texto:'  Seguimos con el bingo  '});
    assert.equal(sent.res.status,200);
-   const aviso=(await received).comunidad.aviso;assert.equal(aviso.texto,'Seguimos con el bingo');
+   const aviso=(await received).comunidad.aviso;assert.equal(aviso.texto,'Seguimos con el bingo');assert.equal(aviso.leerEnVozAlta,false);
    assert(aviso.expiraEn>Date.now()&&aviso.expiraEn<=Date.now()+8000);
    const snapshot=await (await fetch(base+'/vivo/'+evento.linkToken)).json();assert.equal(snapshot.comunidad.aviso.id,aviso.id);assert.equal(snapshot.comunidad.espectadores,1);
+   const hablado=await request('mensaje',{texto:'Siguiente línea',leerEnVozAlta:true});assert.equal(hablado.data.comunidad.aviso.leerEnVozAlta,true);
+   assert.equal((await request('mensaje',{texto:'Inválido',leerEnVozAlta:'si'})).res.status,400);
    for(const texto of ['', '   ', 'x'.repeat(281)])assert.equal((await request('mensaje',{texto})).res.status,400);
    assert.equal((await fetch(base+'/eventos-en-vivo/'+evento.id+'/mensaje',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"texto":"No autorizado"}'})).status,401);
    const other=await prisma.usuario.create({data:{nombre:'Otro',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});

@@ -61,8 +61,8 @@ eventosEnVivoRouter.get("/:id", asyncHandler(async (req, res) => res.json(estado
 
 eventosEnVivoRouter.post("/:id/mensaje", asyncHandler(async (req, res) => {
   const evento = await propio(req.params.id, req.usuario!.sub);
-  const { texto } = z.object({ texto: z.string().trim().min(1).max(280) }).parse(req.body);
-  const comunidad = publicarAviso(evento.linkToken, texto);
+  const { texto, leerEnVozAlta } = z.object({ texto: z.string().trim().min(1).max(280), leerEnVozAlta: z.boolean().default(false) }).parse(req.body);
+  const comunidad = publicarAviso(evento.linkToken, texto, leerEnVozAlta);
   emitirCambio(evento.linkToken, { type: "COMMUNITY_UPDATE", comunidad });
   res.json({ ok: true, comunidad });
 }));

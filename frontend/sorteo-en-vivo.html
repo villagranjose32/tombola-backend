@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="/cuenta-regresiva.js"></script>
 <script src="/live-sync.js"></script>
+<script src="/bolillero-efectos.js"></script>
 <script src="/bingo-voz.js"></script>
 <title>Bingo Virtual — Sorteo en vivo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,15 +59,26 @@
   #mensajesOrganizador .hint{color:#d2c9de}
   #btnEnviarMensaje{margin-top:12px;background:linear-gradient(135deg,#8654cd,#6532ad);color:white;min-height:48px;box-shadow:inset 0 1px 1px #ffffff60,0 4px 0 #3b1b68;font-size:14px}
   #btnEnviarMensaje:focus-visible{outline:3px solid white;outline-offset:4px}
+  .opcion-voz{display:flex;align-items:center;gap:10px;margin:14px 0 8px;font:13px var(--body);text-transform:none;color:var(--paper)}
+  .opcion-voz input{width:20px;height:20px;flex-shrink:0;accent-color:var(--teal)}
   /* bolillero */
-  .cage-wrap{ display:flex; flex-direction:column; align-items:center; }
-  .cage{ position:relative; width:220px; height:220px; border-radius:50%; background: radial-gradient(circle at 35% 30%, rgba(246,241,228,0.06), transparent 60%), var(--felt-2); border:3px solid rgba(246,241,228,0.15); overflow:hidden; }
-  .cage::before{ content:""; position:absolute; inset:8px; border-radius:50%; border:1px dashed rgba(246,241,228,0.15); }
+  .cage-wrap{display:flex;flex-direction:column;align-items:center;position:relative;min-height:360px;padding-top:10px;isolation:isolate;perspective:700px}
+  .cage-wrap::before{content:"";position:absolute;z-index:-1;top:126px;width:244px;height:132px;border:9px solid #a88b54;border-top:0;border-radius:0 0 120px 120px;box-shadow:inset 3px -3px 5px #fff3,4px 6px 12px #0006}
+  .cage-wrap::after{content:"";position:absolute;bottom:2px;width:192px;height:26px;border-radius:50%;background:linear-gradient(#e8d4a0,#977343 48%,#423321);box-shadow:0 8px 12px #0007;border:1px solid #e4cd9580}
+  .cage{position:relative;width:220px;height:220px;flex-shrink:0;border-radius:50%;background:radial-gradient(ellipse at 32% 24%,#a8e0de55,transparent 48%),radial-gradient(circle at 50% 35%,#264f48,#112723 72%);border:5px solid #bca375;overflow:hidden;box-shadow:inset -15px -16px 24px #0009,inset 5px 5px 10px #d8fdfb55,0 0 0 2px #685237,8px 12px 20px #0006}
+  .cage::before{content:"";position:absolute;inset:5px;border-radius:50%;z-index:4;pointer-events:none;background:radial-gradient(ellipse at 30% 18%,#ffffff65,transparent 32%),radial-gradient(ellipse at 80% 75%,transparent 40%,#0003);border:1px solid #fff4}
+  .cage::after{content:"";position:absolute;inset:12px 2px;border:2px solid #d4bc83aa;border-radius:50%;transform:rotateX(65deg);pointer-events:none;z-index:3}
+  .cage-rotor{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none;z-index:3}
+  .cage-aro{position:absolute;inset:3px;border:2px solid #d4bc83b0;border-radius:50%;box-shadow:inset 1px 0 1px #fff5}
+  .cage-aro:nth-child(2){transform:rotateY(45deg)}.cage-aro:nth-child(3){transform:rotateY(90deg)}.cage-aro:nth-child(4){transform:rotateY(135deg)}
+  .cage.spinning .cage-rotor{animation:girar-jaula .65s ease-in-out both}
+  @keyframes girar-jaula{from{transform:rotateZ(-12deg) rotateY(0)}to{transform:rotateZ(12deg) rotateY(720deg)}}
+  @keyframes mezclar-bolas{0%,100%{transform:translate(0,0) rotate(0)}35%{transform:translate(var(--salto-x,18px),-34px) rotate(110deg)}70%{transform:translate(calc(var(--salto-x,18px)*-1),18px) rotate(230deg)}}
   .mini-ball{ position:absolute; width:22px; height:22px; border-radius:50%; background: radial-gradient(circle at 32% 28%, #6fc4b0, var(--teal)); font-family:var(--mono); font-size:9px; font-weight:700; color:var(--ink); display:flex; align-items:center; justify-content:center; animation: float 3.2s ease-in-out infinite; }
   @keyframes float{ 0%{transform:translate(0,0);} 25%{transform:translate(5px,-7px);} 50%{transform:translate(-4px,3px);} 75%{transform:translate(3px,6px);} 100%{transform:translate(0,0);} }
-  .cage.spinning .mini-ball{ animation-duration:0.35s; } .cage.spinning{ filter: blur(1.5px); }
+  .cage.spinning .mini-ball{animation:mezclar-bolas .32s ease-in-out infinite!important}
 
-  .current-ball{ width:82px; height:82px; border-radius:50%; margin-top:-140px; background: radial-gradient(circle at 32% 28%, var(--gold), var(--marquee)); border:4px solid var(--ink); display:flex; align-items:center; justify-content:center; font-family:var(--disp); font-size:28px; color:var(--ink); box-shadow:0 8px 24px rgba(0,0,0,0.4); position:relative; z-index:2; }
+  .current-ball{ width:82px; height:82px; border-radius:50%; margin-top:14px; background: radial-gradient(circle at 32% 28%, var(--gold), var(--marquee)); border:4px solid var(--ink); display:flex; align-items:center; justify-content:center; font-family:var(--disp); font-size:28px; color:var(--ink); box-shadow:0 8px 24px rgba(0,0,0,0.4); position:relative; z-index:2; }
   .current-ball.wide{ font-size:20px; }
   .current-ball.pop{ animation: pop .4s ease; }
   @keyframes pop{ 0%{transform:scale(0.4);opacity:0;} 60%{transform:scale(1.15);} 100%{transform:scale(1);opacity:1;} }
@@ -136,7 +148,7 @@
   #historialCartones .claim-icon{font-size:20px;margin-right:5px;vertical-align:middle}
   @media(prefers-reduced-motion:reduce){#historialCartones .sub-controls button{transition:none;transform:none!important}}
 
-  @media (prefers-reduced-motion: reduce){ .mini-ball, .rep-grid .n.win, .current-ball.pop{ animation:none !important; } }
+  @media (prefers-reduced-motion: reduce){ .mini-ball, .rep-grid .n.win, .current-ball.pop, .cage.spinning .mini-ball, .cage.spinning .cage-rotor{ animation:none !important; } }
   header{position:relative;padding-top:46px}
   .audiencia{position:absolute;top:10px;right:14px;font:11px var(--mono);border:1px solid var(--line);border-radius:20px;padding:7px 10px;color:var(--teal);white-space:nowrap}
   .aviso-espacio{position:sticky;top:0;z-index:60;pointer-events:none;min-height:64px;max-width:1180px;margin:auto;padding:6px 26px}
@@ -196,6 +208,8 @@
     <div class="panel" id="espectadorBox" style="display:none;">
       <h2>Sorteo en vivo</h2>
       <div id="espectadorMsg" role="status">Conectando al sorteo...</div>
+      <label class="opcion-voz"><input type="checkbox" id="escucharMensajes">Escuchar mensajes por voz</label>
+      <p id="estadoVozMensajes" class="hint" role="status">Activá esta opción para escuchar los avisos que el organizador envíe con voz.</p>
     </div>
 
     <!-- voz (siempre visible una vez hay tablero) -->
@@ -243,14 +257,17 @@
         <label for="textoMensaje">Escribí el anuncio que querés mostrar a todos</label>
         <textarea id="textoMensaje" maxlength="280" rows="2" required placeholder="Por ejemplo: Seguimos con la siguiente línea"></textarea>
         <div class="hint">Todos los espectadores lo verán durante 8 segundos. Hasta 280 caracteres.</div>
+        <label class="opcion-voz"><input type="checkbox" id="mensajeConVoz">Leer también en voz alta</label>
         <button type="submit" class="btn btn-full" id="btnEnviarMensaje">Enviar a todos los espectadores</button>
         <p id="mensajeEnvioEstado" role="status"></p>
       </form>
     </section>
     <div class="panel" id="cagePanel" style="display:none;">
       <h2>Bolillero</h2>
+      <label class="opcion-voz"><input type="checkbox" id="sonidoBolillero">Sonido de las bolillas</label>
+      <p class="hint" id="estadoSonidoBolillero" role="status">Activá el sonido para escuchar las bolillas al girar.</p>
       <div class="bolillero-layout"><div class="cage-wrap">
-        <div class="cage" id="cage"></div>
+        <div class="cage" id="cage" role="img" aria-label="Bolillero tridimensional"></div>
         <div class="current-ball empty" id="currentBall">esperando</div>
       </div><div>    <!-- ORGANIZADOR: configuración inicial -->
     <div class="panel" id="orgConfigBox" style="display:none;">
@@ -328,6 +345,7 @@
   let autoplay = false, autoTimer = null, autoplaySeconds = 2.4;
   let voiceVolume = 1;
   let liveSync = null;
+  const efectosBolillero = new BolilleroEfectos(document.getElementById('cage'));
   let reiniciando = false, extraccionPendiente = null;
 
   async function api(path, { method='GET', body, token } = {}) {
@@ -510,14 +528,12 @@
     if (!estado || estado.estado === 'FINALIZADO') return;
     if (estado.estado === 'PAUSADO') { await reanudarExtraccion(); return; }
     document.getElementById('btnExtraer').disabled = true;
-    document.getElementById('cage').classList.add('spinning');
     document.getElementById('currentBall').classList.remove('pop');
     try {
       const data = await api(`/eventos-en-vivo/${sorteoId}/extraer`, { method:'POST', token: orgToken });
-      document.getElementById('cage').classList.remove('spinning');
-      liveSync?.accept({type: 'STATE_SNAPSHOT', ...data.tablero}, true, false);
+      liveSync?.accept({type: 'STATE_UPDATE', accion:'extraida', ...data.tablero}, false, false);
     } catch (e) {
-      document.getElementById('cage').classList.remove('spinning');
+      efectosBolillero.cancelar();
       document.getElementById('btnExtraer').disabled = false;
       document.getElementById('btnExtraer').textContent = 'Extraer bolilla';
       alert(e.message);
@@ -600,7 +616,8 @@
 
   let avisoTimer;
   function nombrePremio(tipo) { return ({LINEA:'Primera línea', SEGUNDA_LINEA:'Segunda línea', BINGO:'Bingo'})[tipo] || tipo; }
-  function mostrarComunidad(comunidad) {
+  const avisosVistos = new Set();
+  function mostrarComunidad(comunidad, {live = false} = {}) {
     if (!comunidad) return;
     const contador = document.getElementById('audiencia');
     contador.textContent = `◉ ${comunidad.espectadores} viendo`;
@@ -610,6 +627,10 @@
     const restante = comunidad.aviso ? comunidad.aviso.expiraEn - Date.now() : 0;
     aviso.hidden = restante <= 0;
     if (restante > 0) {
+      const nuevo = !avisosVistos.has(comunidad.aviso.id);
+      avisosVistos.add(comunidad.aviso.id);
+      if (avisosVistos.size > 100) avisosVistos.delete(avisosVistos.values().next().value);
+      if (nuevo && live && comunidad.aviso.leerEnVozAlta && modoPantalla === 'espectador' && document.getElementById('escucharMensajes').checked) leerAviso(comunidad.aviso.texto);
       if (aviso.dataset.id !== comunidad.aviso.id) {
         aviso.textContent = comunidad.aviso.texto;
         aviso.dataset.id = comunidad.aviso.id;
@@ -618,6 +639,8 @@
     }
   }
   function limpiarComunidad() {
+    efectosBolillero.cancelar();
+    BingoVoz.cancelar();
     cerrarConfirmacionReinicio();
     document.getElementById('reinicioEstado').textContent = '';
     clearTimeout(avisoTimer);
@@ -647,7 +670,7 @@
     const eventoId = sorteoId;
     boton.disabled = true; salida.textContent = 'Enviando…';
     try {
-      const respuesta = await api(`/eventos-en-vivo/${eventoId}/mensaje`, {method:'POST', token:orgToken, body:{texto}});
+      const respuesta = await api(`/eventos-en-vivo/${eventoId}/mensaje`, {method:'POST', token:orgToken, body:{texto, leerEnVozAlta:document.getElementById('mensajeConVoz').checked}});
       if (sorteoId !== eventoId) return;
       mostrarComunidad(respuesta.comunidad);
       if (campo.value.trim() === texto) campo.value = '';
@@ -705,12 +728,14 @@
           document.getElementById('espectadorMsg').textContent = estado.estado === 'PAUSADO' ? 'Sorteo pausado.' : estado.estado === 'FINALIZADO' ? 'Sorteo finalizado.' : 'Esperando la próxima bolilla.';
         }
         if (!anterior || anterior.rangoMax !== estado.rangoMax || nuevaRonda) construirCage();
-        document.getElementById('cage').classList.remove('spinning');
-        if (!animate && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-        if (estado.numeroActual === null) limpiarBolillaCentral();
-        else mostrarBolillaGrande(estado.numeroActual, animate);
-        pintarEstado(estado);
-        if (animate) cantar(estado.numeroActual);
+        if (nuevaRonda || (!animate && !BingoVoz.mensajeActivo())) BingoVoz.cancelar();
+        const estadoConfirmado = estado;
+        efectosBolillero.girar(() => {
+          if (estadoConfirmado.numeroActual === null) limpiarBolillaCentral();
+          else mostrarBolillaGrande(estadoConfirmado.numeroActual, animate);
+          pintarEstado(estadoConfirmado);
+          if (animate && !document.hidden) cantar(estadoConfirmado.numeroActual);
+        }, animate);
         mostrarGanadores(estado);
         mostrarReclamo(estado);
         if (estado.estado !== 'EN_CURSO') pararAutoplay();
@@ -738,8 +763,9 @@
   window.addEventListener('pagehide', () => {
     liveSync?.stop();
     clearInterval(relojCuentaVivo);
+    efectosBolillero.cancelar();
     pararAutoplay();
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    BingoVoz.cancelar();
   });
   window.addEventListener('pageshow', () => { if (liveSync && !liveSync.running) liveSync.start(); });
 
@@ -856,6 +882,33 @@
     pintarCartones({...data,cartones:[carton]},false);
   }catch(e){alert(e.message);} });
 
+  const sonidoBolillero = document.getElementById('sonidoBolillero');
+  if (!window.AudioContext && !window.webkitAudioContext) {
+    sonidoBolillero.disabled = true;
+    document.getElementById('estadoSonidoBolillero').textContent = 'El sonido no está disponible en este navegador.';
+  }
+  sonidoBolillero.addEventListener('change', async () => {
+    if (!sonidoBolillero.checked) {
+      efectosBolillero.silenciar();
+      document.getElementById('estadoSonidoBolillero').textContent = 'Sonido silenciado.';
+      return;
+    }
+    const activo = await efectosBolillero.activarSonido();
+    if (!sonidoBolillero.checked) { efectosBolillero.silenciar(); return; }
+    sonidoBolillero.checked = activo;
+    document.getElementById('estadoSonidoBolillero').textContent = activo ? 'Sonido activado para las próximas bolillas.' : 'No se pudo activar el sonido. Tocá la casilla para volver a intentar.';
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      efectosBolillero.cancelar();
+      if (estado) {
+        if (estado.numeroActual === null) limpiarBolillaCentral();
+        else mostrarBolillaGrande(estado.numeroActual, false);
+        pintarEstado(estado);
+      }
+    }
+  });
+
   /* ---------- render compartido ---------- */
   function colorearBolilla(elemento, numero){
     const colores = ['#e6af18','#2874d0','#dc4743','#8556bd','#eb8325','#25946e','#b94770','#394454'];
@@ -871,6 +924,7 @@
       const angle = Math.random()*2*Math.PI, r = 55+Math.random()*35;
       b.style.left = (110 + Math.cos(angle)*r - 11)+'px';
       b.style.top = (110 + Math.sin(angle)*r - 11)+'px';
+      b.style.setProperty('--salto-x', (i % 2 ? 14 : -14) + 'px');
       b.style.animationDuration = (2.4 + Math.random()*1.6).toFixed(2)+'s';
       b.style.animationDelay = (Math.random()*2).toFixed(2)+'s';
       const numero = Math.floor(Math.random()*rango)+1;
@@ -878,6 +932,9 @@
       colorearBolilla(b, numero);
       cage.appendChild(b);
     }
+    const rotor = document.createElement('div'); rotor.className = 'cage-rotor';
+    rotor.innerHTML = '<span class="cage-aro"></span>'.repeat(4);
+    cage.append(rotor);
   }
 
   function limpiarBolillaCentral(){
@@ -976,7 +1033,23 @@
     return pool.find(v => hints.some(h => v.name.toLowerCase().includes(h))) || pool[0] || null;
   }
   document.getElementById('voiceGender').addEventListener('change', () => {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    BingoVoz.cancelar();
+  });
+  function leerAviso(texto) {
+    const gender = document.getElementById('voiceGender').value;
+    BingoVoz.leerMensaje(texto, {gender, voice:pickVoice(gender), volume:voiceVolume,
+      onError: () => { document.getElementById('estadoVozMensajes').textContent = 'No se pudo reproducir la voz. Desactivá y volvé a activar la opción para intentar nuevamente.'; },
+    });
+  }
+  const escucharMensajes = document.getElementById('escucharMensajes');
+  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+    escucharMensajes.disabled = true;
+    document.getElementById('estadoVozMensajes').textContent = 'Este navegador no permite leer mensajes por voz. Podés seguir leyéndolos en pantalla.';
+  }
+  escucharMensajes.addEventListener('change', () => {
+    document.getElementById('estadoVozMensajes').textContent = escucharMensajes.checked ? 'Lectura de mensajes activada.' : 'Mensajes por voz desactivados.';
+    if (escucharMensajes.checked) leerAviso('Lectura de mensajes activada.');
+    else BingoVoz.silenciarMensajes();
   });
   function cantar(n){
     const gender = document.getElementById('voiceGender').value;
