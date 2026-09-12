@@ -23,3 +23,12 @@ test('Movimiento reducido o página oculta muestran el estado sin giro ni sonido
 test('El sonido requiere activación explícita y funciona sin AudioContext',async()=>{
  const f=fixture();assert.equal(f.efecto.sonido,false);assert.equal(await f.efecto.activarSonido(),false);assert.doesNotThrow(()=>f.efecto.choques());
 });
+
+test('El intervalo automático controla giro, mezcla y sonido hasta revelar',()=>{
+ const f=fixture();let mezcla,sonido,revelado=false;
+ f.efecto.alGirar=ms=>mezcla=ms;f.efecto.choques=ms=>sonido=ms;
+ f.efecto.girar(()=>revelado=true,true,5000);
+ assert.equal(mezcla,5000);assert.equal(sonido,5000);assert.equal(revelado,false);
+ const [{fn,ms}]=f.timers.values();assert.equal(ms,5000);
+ fn();assert.equal(revelado,true);assert.equal(f.clases.has('spinning'),false);
+});

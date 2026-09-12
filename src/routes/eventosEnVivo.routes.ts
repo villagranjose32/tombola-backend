@@ -102,7 +102,8 @@ eventosEnVivoRouter.post("/:id/extraer", asyncHandler(async (req, res) => {
     if (evento.modo === "BINGO" && bolillas.length === evento.rangoMax) estado = "FINALIZADO";
     return tx.eventoEnVivo.update({ include: incluirGanadores, where: { id: evento.id }, data: { bolillas, conteos, cantos: [], ganadorNumero, estado, secuencia: { increment: 1 } } });
   });
-  const snapshot = estadoEnVivo(actualizado);
+  const duracionGiroMs = Math.max(650, Math.min(8000, Number(req.body?.duracionGiroMs) || 650));
+  const snapshot = { ...estadoEnVivo(actualizado), duracionGiroMs };
   emitirCambio(actualizado.linkToken, { tipo: "bolilla", type: "STATE_UPDATE", accion: "extraida", numero: snapshot.numeroActual, ...snapshot });
   res.json({ numero: snapshot.numeroActual, tablero: snapshot });
 }));

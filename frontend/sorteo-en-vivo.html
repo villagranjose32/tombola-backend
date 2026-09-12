@@ -342,12 +342,12 @@
   let bingosDisponibles = [];
   let sorteoId = null, sorteoToken = null;
   let estado = null; // {modo, rangoMax, umbralRepeticion, bolillas, conteos, ganadorNumero, estado}
-  let autoplay = false, autoTimer = null, autoplaySeconds = 2.4;
+  let autoplay = false, autoTimer = null, autoplaySeconds = 2.4, autoCiclo = 0;
   let voiceVolume = 1;
   let liveSync = null;
   const efectosBolillero = new BolilleroEfectos(document.getElementById('cage'));
   const bolasBolillero = new BolilleroBolas(document.getElementById('cage'));
-  efectosBolillero.alGirar = () => bolasBolillero.mezclar(estado?.modo === 'BINGO' ? estado.numeroActual : null);
+  efectosBolillero.alGirar = duracion => bolasBolillero.mezclar(estado?.modo === 'BINGO' ? estado.numeroActual : null, duracion);
   efectosBolillero.alParar = () => bolasBolillero.detener();
   let reiniciando = false, extraccionPendiente = null;
 
@@ -533,7 +533,7 @@
     document.getElementById('btnExtraer').disabled = true;
     document.getElementById('currentBall').classList.remove('pop');
     try {
-      const data = await api(`/eventos-en-vivo/${sorteoId}/extraer`, { method:'POST', token: orgToken });
+      const data = await api(`/eventos-en-vivo/${sorteoId}/extraer`, { method:'POST', token: orgToken, body: { duracionGiroMs: autoplay ? autoplaySeconds * 1000 : 650 } });
       liveSync?.accept({type: 'STATE_UPDATE', accion:'extraida', ...data.tablero}, false, false);
     } catch (e) {
       efectosBolillero.cancelar();
@@ -601,16 +601,24 @@
     if (reiniciando || !estado || estado.estado !== 'EN_CURSO') return;
     autoplay = true; autoplayBtn.textContent = '⏸ Pausar'; autoplayBtn.classList.add('active');
     clearInterval(autoTimer);
-    autoTimer = setInterval(() => { if (estado?.estado === 'EN_CURSO' && !document.getElementById('btnExtraer').disabled) extraerBolilla(); }, autoplaySeconds*1000);
+    const ciclo = ++autoCiclo;
+    const siguiente = async () => {
+      if (!autoplay || ciclo !== autoCiclo || estado?.estado !== 'EN_CURSO') return;
+      const duracion = autoplaySeconds * 1000;
+      await extraerBolilla();
+      if (autoplay && ciclo === autoCiclo) autoTimer = setTimeout(siguiente, duracion + 30);
+    };
+    autoTimer = setTimeout(siguiente, 0);
   }
   function pararAutoplay(){
+    autoCiclo++;
     autoplay = false; autoplayBtn.textContent = '▶ Iniciar automático'; autoplayBtn.classList.remove('active');
     clearInterval(autoTimer);
   }
   document.getElementById('speedRange').addEventListener('input', (e) => {
     autoplaySeconds = parseFloat(e.target.value);
     document.getElementById('speedVal').textContent = autoplaySeconds.toFixed(1);
-    if (autoplay) arrancarAutoplay();
+    // La próxima extracción toma el nuevo intervalo sin cortar el giro actual.
   });
   document.getElementById('volRange').addEventListener('input', (e) => {
     voiceVolume = parseInt(e.target.value)/100;
@@ -739,7 +747,7 @@
           else mostrarBolillaGrande(estadoConfirmado.numeroActual, animate);
           pintarEstado(estadoConfirmado);
           if (animate && !document.hidden) cantar(estadoConfirmado.numeroActual);
-        }, animate);
+        }, animate, estadoConfirmado.duracionGiroMs);
         mostrarGanadores(estado);
         mostrarReclamo(estado);
         if (estado.estado !== 'EN_CURSO') pararAutoplay();

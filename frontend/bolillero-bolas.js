@@ -41,17 +41,17 @@
     pintar() {
       for (const b of this.bolas) b.el.style.transform = `translate(${b.x-this.radio}px,${b.y-this.radio}px)`;
     }
-    mezclar(numeroSalida) {
+    mezclar(numeroSalida, duracion = 650) {
       this.detener();
       const inicio = this.env.performance.now(); let anterior = inicio;
       for (const b of this.bolas) { b.vx = (Math.random()-.5)*340; b.vy = -100-Math.random()*220; b.salidaInicio = null; }
       const mover = ahora => {
         const dt = Math.min(.025, Math.max(0, (ahora-anterior)/1000)); anterior = ahora;
-        const salida = ahora-inicio > 440 ? numeroSalida : null;
+        const salida = ahora-inicio > duracion - 210 ? numeroSalida : null;
         for (const b of this.bolas) {
           if (b.numero === salida) {
             b.salidaInicio ||= {x:b.x,y:b.y};
-            const avance = Math.min(1,(ahora-inicio-440)/210);
+            const avance = Math.min(1,(ahora-inicio-(duracion-210))/210);
             b.x = b.salidaInicio.x+(this.centro-b.salidaInicio.x)*avance;
             b.y = b.salidaInicio.y+(this.centro*2+this.radio*2-b.salidaInicio.y)*avance;
             b.el.style.zIndex = '2'; continue;

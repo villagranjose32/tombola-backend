@@ -28,14 +28,14 @@
       }
       this.nodos.clear();
     }
-    choques() {
+    choques(duracion = 650) {
       const ctx = this.audio;
       if (!this.sonido || ctx?.state !== 'running') return;
       // Golpes cortos: resonancia de la bola y un pequeño impacto de ruido.
       this.ruido ||= ctx.createBuffer(1, Math.ceil(ctx.sampleRate * .035), ctx.sampleRate);
       const muestras = this.ruido.getChannelData(0);
       for (let i = 0; i < muestras.length; i++) muestras[i] = (Math.random() * 2 - 1) * (1 - i / muestras.length);
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < Math.max(10, Math.floor((duracion - 100) / 55)); i++) {
         const cuando = ctx.currentTime + i * .055 + Math.random() * .012;
         const tono = ctx.createOscillator();
         const ruido = ctx.createBufferSource(); ruido.buffer = this.ruido;
@@ -65,19 +65,20 @@
       this.detenerSonido();
       this.alParar?.();
     }
-    girar(revelar, animar) {
+    girar(revelar, animar, duracion = 650) {
+      duracion = Math.max(650, Math.min(8000, Number(duracion) || 650));
       this.cancelar();
       if (!animar || this.env.document.hidden || this.env.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
         revelar(); return;
       }
       this.cage.classList.add('spinning');
       this.cage.setAttribute('aria-busy', 'true');
-      this.alGirar?.();
-      try { this.choques(); } catch { this.silenciar(); }
+      this.alGirar?.(duracion);
+      try { this.choques(duracion); } catch { this.silenciar(); }
       this.timer = this.env.setTimeout(() => {
         this.cancelar();
         revelar();
-      }, 650);
+      }, duracion);
     }
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = BolilleroEfectos;
