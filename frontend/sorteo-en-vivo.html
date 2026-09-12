@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="/cuenta-regresiva.js"></script>
 <script src="/live-sync.js"></script>
+<script src="/bolillero-bolas.js"></script>
 <script src="/bolillero-efectos.js"></script>
 <script src="/bingo-voz.js"></script>
 <title>Bingo Virtual — Sorteo en vivo</title>
@@ -67,16 +68,14 @@
   .cage-wrap::after{content:"";position:absolute;bottom:2px;width:192px;height:26px;border-radius:50%;background:linear-gradient(#e8d4a0,#977343 48%,#423321);box-shadow:0 8px 12px #0007;border:1px solid #e4cd9580}
   .cage{position:relative;width:220px;height:220px;flex-shrink:0;border-radius:50%;background:radial-gradient(ellipse at 32% 24%,#a8e0de55,transparent 48%),radial-gradient(circle at 50% 35%,#264f48,#112723 72%);border:5px solid #bca375;overflow:hidden;box-shadow:inset -15px -16px 24px #0009,inset 5px 5px 10px #d8fdfb55,0 0 0 2px #685237,8px 12px 20px #0006}
   .cage::before{content:"";position:absolute;inset:5px;border-radius:50%;z-index:4;pointer-events:none;background:radial-gradient(ellipse at 30% 18%,#ffffff65,transparent 32%),radial-gradient(ellipse at 80% 75%,transparent 40%,#0003);border:1px solid #fff4}
-  .cage::after{content:"";position:absolute;inset:12px 2px;border:2px solid #d4bc83aa;border-radius:50%;transform:rotateX(65deg);pointer-events:none;z-index:3}
-  .cage-rotor{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none;z-index:3}
+  .cage-latitud{position:absolute;inset:12px 2px;border:2px solid #d4bc83aa;border-radius:50%;transform:rotateX(65deg)}
+  .cage-rotor{position:absolute;inset:0;transform:rotateZ(-12deg);transform-style:preserve-3d;pointer-events:none;z-index:3}
   .cage-aro{position:absolute;inset:3px;border:2px solid #d4bc83b0;border-radius:50%;box-shadow:inset 1px 0 1px #fff5}
   .cage-aro:nth-child(2){transform:rotateY(45deg)}.cage-aro:nth-child(3){transform:rotateY(90deg)}.cage-aro:nth-child(4){transform:rotateY(135deg)}
-  .cage.spinning .cage-rotor{animation:girar-jaula .65s ease-in-out both}
-  @keyframes girar-jaula{from{transform:rotateZ(-12deg) rotateY(0)}to{transform:rotateZ(12deg) rotateY(720deg)}}
-  @keyframes mezclar-bolas{0%,100%{transform:translate(0,0) rotate(0)}35%{transform:translate(var(--salto-x,18px),-34px) rotate(110deg)}70%{transform:translate(calc(var(--salto-x,18px)*-1),18px) rotate(230deg)}}
-  .mini-ball{ position:absolute; width:22px; height:22px; border-radius:50%; background: radial-gradient(circle at 32% 28%, #6fc4b0, var(--teal)); font-family:var(--mono); font-size:9px; font-weight:700; color:var(--ink); display:flex; align-items:center; justify-content:center; animation: float 3.2s ease-in-out infinite; }
-  @keyframes float{ 0%{transform:translate(0,0);} 25%{transform:translate(5px,-7px);} 50%{transform:translate(-4px,3px);} 75%{transform:translate(3px,6px);} 100%{transform:translate(0,0);} }
-  .cage.spinning .mini-ball{animation:mezclar-bolas .32s ease-in-out infinite!important}
+  .cage.spinning .cage-rotor{animation:girar-jaula .32s linear infinite}
+  @keyframes girar-jaula{from{transform:rotateZ(-12deg) rotateX(0)}to{transform:rotateZ(-12deg) rotateX(360deg)}}
+  .mini-ball{position:absolute;left:0;top:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;line-height:1;pointer-events:none}
+  .cage.spinning .mini-ball{will-change:transform}
 
   .current-ball{ width:82px; height:82px; border-radius:50%; margin-top:14px; background: radial-gradient(circle at 32% 28%, var(--gold), var(--marquee)); border:4px solid var(--ink); display:flex; align-items:center; justify-content:center; font-family:var(--disp); font-size:28px; color:var(--ink); box-shadow:0 8px 24px rgba(0,0,0,0.4); position:relative; z-index:2; }
   .current-ball.wide{ font-size:20px; }
@@ -187,7 +186,7 @@
 <div id="conexionEnVivo" role="status" aria-live="polite" style="padding:10px 28px;" hidden></div>
 
 <div class="aviso-espacio"><div id="avisoOrganizador" class="aviso-organizador" role="status" aria-live="polite" hidden></div></div>
-<p id="cuentaRegresivaVivo" class="cuenta-regresiva" role="timer" hidden></p>
+<p id="cuentaRegresivaVivo" class="cuenta-regresiva" hidden></p>
 <main>
   <div id="sidebarCartones">
     <!-- ORGANIZADOR: login -->
@@ -266,6 +265,7 @@
       <h2>Bolillero</h2>
       <label class="opcion-voz"><input type="checkbox" id="sonidoBolillero">Sonido de las bolillas</label>
       <p class="hint" id="estadoSonidoBolillero" role="status">Activá el sonido para escuchar las bolillas al girar.</p>
+      <p id="bolillasRestantes" class="hint"></p>
       <div class="bolillero-layout"><div class="cage-wrap">
         <div class="cage" id="cage" role="img" aria-label="Bolillero tridimensional"></div>
         <div class="current-ball empty" id="currentBall">esperando</div>
@@ -346,6 +346,9 @@
   let voiceVolume = 1;
   let liveSync = null;
   const efectosBolillero = new BolilleroEfectos(document.getElementById('cage'));
+  const bolasBolillero = new BolilleroBolas(document.getElementById('cage'));
+  efectosBolillero.alGirar = () => bolasBolillero.mezclar(estado?.modo === 'BINGO' ? estado.numeroActual : null);
+  efectosBolillero.alParar = () => bolasBolillero.detener();
   let reiniciando = false, extraccionPendiente = null;
 
   async function api(path, { method='GET', body, token } = {}) {
@@ -731,6 +734,7 @@
         if (nuevaRonda || (!animate && !BingoVoz.mensajeActivo())) BingoVoz.cancelar();
         const estadoConfirmado = estado;
         efectosBolillero.girar(() => {
+          construirCage(estadoConfirmado);
           if (estadoConfirmado.numeroActual === null) limpiarBolillaCentral();
           else mostrarBolillaGrande(estadoConfirmado.numeroActual, animate);
           pintarEstado(estadoConfirmado);
@@ -750,7 +754,8 @@
   }
   function actualizarCuentaVivo() {
     const cuenta = document.getElementById('cuentaRegresivaVivo');
-    if (modoPantalla !== 'espectador' || !estado) { cuenta.hidden = true; return; }
+    const integrado = new URLSearchParams(location.search).get('integrado') === '1' && window.parent !== window;
+    if (integrado || modoPantalla !== 'espectador' || !estado) { cuenta.hidden = true; return; }
     CuentaRegresiva.pintar(cuenta, estado.inicioProgramado, (estado.numerosExtraidos || []).length > 0 || estado.estado === 'FINALIZADO');
   }
   let relojCuentaVivo = setInterval(actualizarCuentaVivo, 1000);
@@ -905,6 +910,7 @@
         if (estado.numeroActual === null) limpiarBolillaCentral();
         else mostrarBolillaGrande(estado.numeroActual, false);
         pintarEstado(estado);
+        construirCage(estado);
       }
     }
   });
@@ -914,27 +920,17 @@
     const colores = ['#e6af18','#2874d0','#dc4743','#8556bd','#eb8325','#25946e','#b94770','#394454'];
     elemento.style.setProperty('--ball-color', colores[(numero - 1) % colores.length]);
   }
-  function construirCage(){
+  function construirCage(datos = estado){
     const cage = document.getElementById('cage');
-    cage.innerHTML = '';
-    const rango = (estado && estado.rangoMax) || 90;
-    for (let i=0;i<22;i++){
-      const b = document.createElement('div');
-      b.className = 'mini-ball';
-      const angle = Math.random()*2*Math.PI, r = 55+Math.random()*35;
-      b.style.left = (110 + Math.cos(angle)*r - 11)+'px';
-      b.style.top = (110 + Math.sin(angle)*r - 11)+'px';
-      b.style.setProperty('--salto-x', (i % 2 ? 14 : -14) + 'px');
-      b.style.animationDuration = (2.4 + Math.random()*1.6).toFixed(2)+'s';
-      b.style.animationDelay = (Math.random()*2).toFixed(2)+'s';
-      const numero = Math.floor(Math.random()*rango)+1;
-      b.textContent = pad(numero, rango);
-      colorearBolilla(b, numero);
-      cage.appendChild(b);
+    if (!cage.querySelector('.cage-rotor')) {
+      const rotor = document.createElement('div'); rotor.className = 'cage-rotor';
+      rotor.innerHTML = '<span class="cage-aro"></span>'.repeat(4) + '<span class="cage-latitud"></span>';
+      cage.append(rotor);
     }
-    const rotor = document.createElement('div'); rotor.className = 'cage-rotor';
-    rotor.innerHTML = '<span class="cage-aro"></span>'.repeat(4);
-    cage.append(rotor);
+    const restantes = bolasBolillero.actualizar(datos || {});
+    document.getElementById('bolillasRestantes').textContent = datos?.modo === 'REPETICION'
+      ? `${restantes} bolillas · Sorteo con reposición`
+      : `${restantes} bolillas disponibles`;
   }
 
   function limpiarBolillaCentral(){

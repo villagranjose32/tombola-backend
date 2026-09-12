@@ -13,6 +13,8 @@ app.post('/sorteos',(q,r)=>{creados++;creacion=q.body;r.json({...q.body,id:'nuev
 app.post('/sorteos/nuevo/publicar',(q,r)=>r.json({id:'nuevo',linkToken:'nuevo',estado:'ACTIVO'}));
 app.get('/s/demo',(q,r)=>r.json({...bingo,presentacion:bingo.config.presentacion,enVivo:{linkToken:'vivo',iniciado:false,estado:'EN_CURSO'},tablero:[{numero:1,cantidadCartones:3,estado:'LIBRE'}]}));
 app.get('/s/demo/organizador',(q,r)=>r.json({nombre:'Ana <script>',telefono:'+54 11 1234-5678',pago:{alias:bingo.config.alias,cbu:bingo.config.cbu}}));
+app.get('/vivo/vivo',(q,r)=>r.json({type:'STATE_SNAPSHOT',salaId:'vivo',secuencia:0,modo:'BINGO',titulo:bingo.titulo,estado:'EN_CURSO',rangoMax:90,numeroActual:null,numerosExtraidos:[],bolillas:[],inicioProgramado:bingo.config.presentacion.inicioProgramado}));
+app.get('/vivo/vivo/organizador',(q,r)=>r.json({nombre:'Organizador'}));
 app.use(express.static(root+'/frontend'));
 const server=app.listen(0,'127.0.0.1');await once(server,'listening');const profile=fs.mkdtempSync('/tmp/series-chrome-');
 const chrome=spawn('/usr/bin/chromium',['--headless','--no-sandbox','--disable-gpu','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank']);let ws;
@@ -52,6 +54,26 @@ await evaluate('document.querySelectorAll(".copiar-pago")[1].click()');await wai
 assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
 await evaluate('document.getElementById("datosOrganizador").scrollIntoView()');
 const shot=await cmd('Page.captureScreenshot',{format:'png'});fs.writeFileSync('/tmp/bingo-pagos-contacto-mobile.png',Buffer.from(shot.data,'base64'));
+bingo.config.presentacion.inicioProgramado='2020-01-01T12:00:00Z';
+await evaluate('document.getElementById("verVivo").click()');
+await wait('document.querySelector("iframe")?.contentDocument?.getElementById("cagePanel")?.style.display === "block"');
+assert.equal(await evaluate('document.getElementById("cuentaRegresiva").hidden'),false);
+assert.equal(await evaluate('document.querySelector("iframe").contentDocument.getElementById("cuentaRegresivaVivo").hidden'),true);
+await evaluate('document.querySelector("#cuentaRegresiva .cerrar-cuenta").click()');
+assert.equal(await evaluate('document.getElementById("cuentaRegresiva").hidden'),true);
+await evaluate('document.getElementById("verCompra").click()');
+await wait('!!document.querySelector(".series-compra")');assert.equal(await evaluate('document.getElementById("cuentaRegresiva").hidden'),true);
+await cmd('Page.navigate',{url:url+'/tablero-publico.html?sorteo=demo'});
+await wait('!!document.querySelector(".series-compra")');assert.equal(await evaluate('document.getElementById("cuentaRegresiva").hidden'),true);
+bingo.config.presentacion.inicioProgramado='2021-01-01T12:00:00Z';
+await evaluate('document.dispatchEvent(new Event("visibilitychange"))');
+await wait('!document.getElementById("cuentaRegresiva").hidden');
+await cmd('Page.navigate',{url:url+'/sorteo-en-vivo.html?modo=espectador&sorteo=vivo'});
+await wait('document.getElementById("cagePanel")?.style.display === "block"');
+assert.equal(await evaluate('document.getElementById("cuentaRegresivaVivo").hidden'),false);
+await evaluate('document.querySelector("#cuentaRegresivaVivo .cerrar-cuenta").click()');
+assert.equal(await evaluate('document.getElementById("cuentaRegresivaVivo").hidden'),true);
+console.log('OK: aviso único en el vivo integrado, cierre persistente por sesión y nueva fecha vuelve a mostrarse.');
 console.log('OK: editar sin duplicar, crear con alias, copiar alias/CBU, WhatsApp y vista móvil sin desbordamiento.');
 }finally{if(ws)ws.close();chrome.kill();await once(chrome,'exit');await new Promise(r=>server.close(r));await fs.promises.rm(profile,{recursive:true,force:true,maxRetries:20,retryDelay:100});}
 })().catch(e=>{console.error(e);process.exitCode=1});

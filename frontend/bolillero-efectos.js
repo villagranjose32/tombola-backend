@@ -63,6 +63,7 @@
       this.cage.classList.remove('spinning');
       this.cage.removeAttribute('aria-busy');
       this.detenerSonido();
+      this.alParar?.();
     }
     girar(revelar, animar) {
       this.cancelar();
@@ -71,6 +72,7 @@
       }
       this.cage.classList.add('spinning');
       this.cage.setAttribute('aria-busy', 'true');
+      this.alGirar?.();
       try { this.choques(); } catch { this.silenciar(); }
       this.timer = this.env.setTimeout(() => {
         this.cancelar();
