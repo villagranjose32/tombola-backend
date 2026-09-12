@@ -23,6 +23,7 @@
     return texto ? texto[0].toUpperCase() + texto.slice(1) + ', ' + significados[n] + '.' : null;
   }
   const mensajes = new WeakMap();
+  const numeros = new WeakMap();
   function locucion(texto, {gender, voice, volume = 1}, env) {
     const utter = new env.SpeechSynthesisUtterance(texto);
     if (voice?.lang?.toLowerCase().startsWith('es')) utter.voice = voice;
@@ -33,17 +34,33 @@
     return utter;
   }
   function cancelar(env = root) {
+    const numeroActivo = numeros.get(env);
+    numeros.delete(env);
     mensajes.delete(env);
     env.speechSynthesis?.cancel();
+    numeroActivo?.terminar(true);
   }
   function cantar(n, opciones, env = root) {
     const texto = frase(n);
-    if (!env.speechSynthesis) return;
+    if (!env.speechSynthesis) return false;
     const activo = mensajes.get(env);
-    if (activo) { activo.numeroPendiente = {n, opciones}; return; }
+    if (activo) { activo.numeroPendiente = {n, opciones}; return true; }
     cancelar(env);
-    if (!texto || opciones.gender === 'ninguna') return;
-    env.speechSynthesis.speak(locucion(texto, opciones, env));
+    if (!texto || opciones.gender === 'ninguna') return false;
+    const utter = locucion(texto, opciones, env);
+    const numeroActivo = {terminar: null};
+    let terminado = false;
+    numeroActivo.terminar = error => {
+      if (terminado) return;
+      terminado = true;
+      if (numeros.get(env) === numeroActivo) numeros.delete(env);
+      opciones.onEnd?.(error);
+    };
+    utter.onend = () => numeroActivo.terminar(false);
+    utter.onerror = () => numeroActivo.terminar(true);
+    numeros.set(env, numeroActivo);
+    try { env.speechSynthesis.speak(utter); } catch { numeroActivo.terminar(true); return false; }
+    return true;
   }
   function leerMensaje(texto, opciones, env = root) {
     if (!env.speechSynthesis || !env.SpeechSynthesisUtterance || !texto?.trim() || opciones.gender === 'ninguna') return;

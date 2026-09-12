@@ -31,31 +31,26 @@
     choques(duracion = 650) {
       const ctx = this.audio;
       if (!this.sonido || ctx?.state !== 'running') return;
-      // Golpes cortos: resonancia de la bola y un pequeño impacto de ruido.
-      this.ruido ||= ctx.createBuffer(1, Math.ceil(ctx.sampleRate * .035), ctx.sampleRate);
-      const muestras = this.ruido.getChannelData(0);
-      for (let i = 0; i < muestras.length; i++) muestras[i] = (Math.random() * 2 - 1) * (1 - i / muestras.length);
-      for (let i = 0; i < Math.max(10, Math.floor((duracion - 100) / 55)); i++) {
-        const cuando = ctx.currentTime + i * .055 + Math.random() * .012;
+      // Secuencia electrónica ascendente, similar al giro de una tragamonedas.
+      const notas = [523.25, 659.25, 783.99, 1046.5];
+      const intervalo = .075;
+      const cantidad = Math.max(8, Math.floor((duracion - 80) / (intervalo * 1000)));
+      for (let i = 0; i < cantidad; i++) {
+        const cuando = ctx.currentTime + i * intervalo;
         const tono = ctx.createOscillator();
-        const ruido = ctx.createBufferSource(); ruido.buffer = this.ruido;
-        const filtro = ctx.createBiquadFilter(); filtro.type = 'highpass'; filtro.frequency.value = 1400;
         const volumen = ctx.createGain();
+        tono.type = i % 4 === 3 ? 'triangle' : 'square';
+        tono.frequency.setValueAtTime(notas[i % notas.length], cuando);
+        tono.frequency.exponentialRampToValueAtTime(notas[i % notas.length] * 1.08, cuando + .055);
         volumen.gain.setValueAtTime(.0001, cuando);
-        volumen.gain.exponentialRampToValueAtTime(.06 + Math.random() * .025, cuando + .002);
-        volumen.gain.exponentialRampToValueAtTime(.0001, cuando + .055);
-        tono.frequency.setValueAtTime(380 + Math.random() * 400, cuando);
-        tono.frequency.exponentialRampToValueAtTime(140, cuando + .045);
-        tono.connect(volumen); ruido.connect(filtro); filtro.connect(volumen); volumen.connect(ctx.destination);
-        let terminadas = 0;
-        for (const fuente of [tono, ruido]) {
-          this.nodos.add(fuente);
-          fuente.onended = () => {
-            fuente.disconnect(); this.nodos.delete(fuente);
-            if (++terminadas === 2) { filtro.disconnect(); volumen.disconnect(); }
-          };
-          fuente.start(cuando); fuente.stop(cuando + .06);
-        }
+        volumen.gain.exponentialRampToValueAtTime(i % 4 === 3 ? .055 : .035, cuando + .006);
+        volumen.gain.exponentialRampToValueAtTime(.0001, cuando + .065);
+        tono.connect(volumen); volumen.connect(ctx.destination);
+        this.nodos.add(tono);
+        tono.onended = () => {
+          tono.disconnect(); volumen.disconnect(); this.nodos.delete(tono);
+        };
+        tono.start(cuando); tono.stop(cuando + .07);
       }
     }
     cancelar() {

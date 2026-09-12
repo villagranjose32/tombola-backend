@@ -344,6 +344,7 @@
   let estado = null; // {modo, rangoMax, umbralRepeticion, bolillas, conteos, ganadorNumero, estado}
   let autoplay = false, autoTimer = null, autoplaySeconds = 2.4, autoCiclo = 0;
   let voiceVolume = 1;
+  let finLocucionNumero = Promise.resolve();
   let liveSync = null;
   const efectosBolillero = new BolilleroEfectos(document.getElementById('cage'));
   const bolasBolillero = new BolilleroBolas(document.getElementById('cage'));
@@ -530,6 +531,9 @@
   async function realizarExtraccion(){
     if (!estado || estado.estado === 'FINALIZADO') return;
     if (estado.estado === 'PAUSADO') { await reanudarExtraccion(); return; }
+    // No superponer el giro ni su sonido con el dictado de la bolilla anterior.
+    await finLocucionNumero;
+    if (!estado || estado.estado !== 'EN_CURSO') return;
     document.getElementById('btnExtraer').disabled = true;
     document.getElementById('currentBall').classList.remove('pop');
     try {
@@ -1057,8 +1061,11 @@
   });
   function cantar(n){
     const gender = document.getElementById('voiceGender').value;
-    if (gender==='ninguna' || !('speechSynthesis' in window)) return;
-    BingoVoz.cantar(n, {gender, voice: pickVoice(gender), volume: voiceVolume});
+    if (gender==='ninguna' || !('speechSynthesis' in window)) { finLocucionNumero = Promise.resolve(); return; }
+    finLocucionNumero = new Promise(resolve => {
+      const iniciada = BingoVoz.cantar(n, {gender, voice: pickVoice(gender), volume: voiceVolume, onEnd: resolve});
+      if (!iniciada) resolve();
+    });
   }
 
   async function inicializarDesdeEnlace() {

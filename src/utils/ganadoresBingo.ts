@@ -3,12 +3,16 @@ export function detectarGanadores<T extends {
   numero: number;
   cartones: Array<{ id: string; posicion: number; contenido: unknown }>;
   participante: { nombre: string | null } | null;
-}>(series: T[], bolillas: number[], tipo: "LINEA" | "SEGUNDA_LINEA" | "BINGO") {
+}>(series: T[], bolillas: number[], tipo: "LINEA" | "SEGUNDA_LINEA" | "BINGO", cartonesConPrimeraLinea: ReadonlySet<string> = new Set()) {
   const extraidas = new Set(bolillas);
   return series.flatMap(serie => serie.cartones.filter(carton => {
     const filas = carton.contenido as (number | null)[][];
     const numerosPorFila = filas.map(fila => fila.filter((n): n is number => n !== null));
-    if (tipo !== "BINGO") return numerosPorFila.filter(fila => fila.length > 0 && fila.every(n => extraidas.has(n))).length >= (tipo === "SEGUNDA_LINEA" ? 2 : 1);
+    if (tipo !== "BINGO") {
+      const lineasCompletas = numerosPorFila.filter(fila => fila.length > 0 && fila.every(n => extraidas.has(n))).length;
+      const lineasNecesarias = tipo === "SEGUNDA_LINEA" && cartonesConPrimeraLinea.has(carton.id) ? 2 : 1;
+      return lineasCompletas >= lineasNecesarias;
+    }
     const numeros = numerosPorFila.flat();
     return numeros.length > 0 && numeros.every(n => extraidas.has(n));
   }).map(carton => ({

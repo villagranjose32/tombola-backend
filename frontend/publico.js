@@ -59,7 +59,7 @@
       if (seleccion.serie) {
         const url = enlace('/tablero-publico.html');
         const aviso = document.createElement('div');
-        aviso.innerHTML = `<p>Guardá el enlace del sorteo. En Ver y descargar mis cartones podrás descargarla cuando el organizador confirme el pago.</p><div class="acciones"><a class="enlace" href="${escape(url)}">Volver al sorteo</a><button>Copiar enlace del sorteo</button></div>`;
+        aviso.innerHTML = `<p>Guardá el enlace del sorteo. En Ver y descargar mis cartones podrás descargarla cuando el organizador confirme el pago.</p><div class="acciones"><button>Copiar enlace del sorteo</button></div>`;
         aviso.querySelector('button').onclick = () => compartir(url);
         $('comprobante').replaceChildren(aviso);
       }

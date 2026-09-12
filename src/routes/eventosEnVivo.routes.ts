@@ -196,10 +196,16 @@ eventosEnVivoPublicoRouter.post("/:token/cantar", asyncHandler(async (req, res) 
     const candidatas = !datos.numerosSeries && datos.numeroCarton
       ? series.map(serie => ({ ...serie, cartones: serie.cartones.filter(c => c.posicion === datos.numeroCarton) }))
       : series;
-    const ganadores = detectarGanadores(candidatas, actual.bolillas as number[], datos.tipo);
+    const primerasLineas = datos.tipo === "SEGUNDA_LINEA" ? new Set((await tx.cantoBingo.findMany({
+      where: { eventoId: actual.id, ronda: actual.ronda, tipo: "LINEA" }, select: { cartonId: true },
+    })).map(canto => canto.cartonId)) : new Set<string>();
+    if (datos.tipo === "SEGUNDA_LINEA" && !primerasLineas.size) {
+      throw new HttpError(409, "Primero debe haberse validado el canto de primera línea.");
+    }
+    const ganadores = detectarGanadores(candidatas, actual.bolillas as number[], datos.tipo, primerasLineas);
     if (!ganadores.length) throw new HttpError(409, datos.tipo === "BINGO"
       ? "Todavía no hay un cartón con bingo entre tus series."
-      : datos.tipo === "SEGUNDA_LINEA" ? "Todavía no hay dos líneas completas en un mismo cartón." : "Todavía no hay una línea completa entre tus cartones.");
+      : datos.tipo === "SEGUNDA_LINEA" ? "Todavía no hay un segundo canto de línea válido entre tus cartones." : "Todavía no hay una línea completa entre tus cartones.");
     for (const ganador of ganadores) {
       await tx.cantoBingo.upsert({
         where: { eventoId_ronda_tipo_cartonId: { eventoId: actual.id, ronda: actual.ronda, tipo: datos.tipo, cartonId: ganador.carton.id } },

@@ -29,9 +29,10 @@ test('Acumula cantos de diferentes titulares y premios sin duplicarlos',()=>{
  assert.deepEqual(acumularCantos(cantos,second,'LINEA',16).map(c=>c.participante),['Luis']);
 });
 
-test('Segunda línea exige dos filas del mismo cartón',()=>{
- assert.deepEqual(detectarGanadores(series,[1,2,3,4,5],'SEGUNDA_LINEA'),[]);
- assert.equal(detectarGanadores(series,[1,2,3,4,5,11,12,13,14,15],'SEGUNDA_LINEA')[0].numeroCarton,2);
+test('Segunda línea acepta otro cartón con una línea y exige otra fila al ganador anterior',()=>{
+ assert.equal(detectarGanadores(series,[1,2,3,4,5],'SEGUNDA_LINEA',new Set(['otro-carton']))[0].numeroCarton,2);
+ assert.deepEqual(detectarGanadores(series,[1,2,3,4,5],'SEGUNDA_LINEA',new Set(['carton2'])),[]);
+ assert.equal(detectarGanadores(series,[1,2,3,4,5,6,7,8,9,10],'SEGUNDA_LINEA',new Set(['carton2']))[0].numeroCarton,2);
  const distintas=[{numero:1,participante:null,cartones:[card(1),card(2,30)]}];
- assert.deepEqual(detectarGanadores(distintas,[1,2,3,4,5,30,31,32,33,34],'SEGUNDA_LINEA'),[]);
+ assert.deepEqual(detectarGanadores(distintas,[1,2,3,4,5,30,31,32,33,34],'SEGUNDA_LINEA',new Set(['carton1'])).map(x=>x.numeroCarton),[2]);
 });

@@ -20,6 +20,13 @@ test('Cancela antes de hablar una sola vez y conserva español y silencio', () =
   voz.cantar(1,{gender:'ninguna'},env);assert.equal(calls.length,3);assert.equal(calls[2],'cancel');
 });
 
+test('Informa cuándo termina el dictado para reanudar el bolillero', () => {
+  const calls=[];let finales=0;
+  const env={speechSynthesis:{cancel:()=>{},speak:u=>calls.push(u)},SpeechSynthesisUtterance:class {constructor(text){this.text=text;}}};
+  assert.equal(voz.cantar(22,{gender:'femenina',onEnd:()=>finales++},env),true);
+  assert.equal(finales,0);calls[0].onend();assert.equal(finales,1);
+});
+
 test('Lee avisos completos y al terminar canta únicamente la última bolilla pendiente',()=>{
  const calls=[];
  const env={speechSynthesis:{cancel:()=>calls.push('cancel'),speak:u=>calls.push(u)},SpeechSynthesisUtterance:class {constructor(text){this.text=text;}}};
