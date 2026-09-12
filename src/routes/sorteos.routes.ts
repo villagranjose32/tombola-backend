@@ -23,6 +23,8 @@ const configRifaSchema = z.object({
 const configBingoSchema = z.object({
   cartonesPorSerie: z.number().int().min(3).max(6),
   cantidadSeries: z.number().int().min(1).max(5000),
+  alias: z.string().trim().max(100).default(""),
+  cbu: z.string().trim().regex(/^(?:[0-9]{22})?$/, "El CBU debe tener 22 dígitos").default(""),
 });
 
 const configSimpleSchema = z.object({
@@ -33,7 +35,7 @@ const crearSorteoSchema = z.object({
   tipo: z.enum(["RIFA", "BINGO", "SORTEO_SIMPLE"]),
   titulo: z.string().trim().min(3),
   descripcion: z.string().trim().optional(),
-  fechaCierre: z.string().datetime().optional(),
+  fechaCierre: z.string().datetime().nullable().optional(),
   config: z.record(z.any()),
 });
 
@@ -234,28 +236,33 @@ sorteosRouter.patch("/:id/inscripciones/:inscripcionId", asyncHandler(async (req
   res.json({ estado });
 }));
 
-// ---- editar config (solo mientras está en borrador) ----
-sorteosRouter.patch(
-  "/:id",
-  asyncHandler(async (req, res) => {
-    const sorteo = await obtenerSorteoPropio(req.params.id, req.usuario!.sub);
-    if (sorteo.estado !== "BORRADOR") throw new HttpError(409, "Solo se puede editar un sorteo en borrador");
-
-    const datos = crearSorteoSchema.partial().parse(req.body);
-    const config = datos.config ? validarConfigPorTipo(datos.tipo ?? sorteo.tipo, datos.config) : undefined;
-
-    const actualizado = await prisma.sorteo.update({
-      where: { id: sorteo.id },
-      data: {
-        titulo: datos.titulo,
-        descripcion: datos.descripcion,
-        fechaCierre: datos.fechaCierre ? new Date(datos.fechaCierre) : undefined,
-        ...(config ? { config } : {}),
-      },
-    });
-    res.json(actualizado);
-  })
-);
+// Edita datos públicos sin regenerar series ni perder la presentación.
+sorteosRouter.patch("/:id", asyncHandler(async (req, res) => {
+  const datos = crearSorteoSchema.partial().parse(req.body);
+  const actualizado = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM sorteos WHERE id = ${req.params.id} FOR UPDATE`;
+    const sorteo = await tx.sorteo.findUnique({ where: { id: req.params.id } });
+    if (!sorteo) throw new HttpError(404, "Sorteo no encontrado");
+    if (sorteo.organizadorId !== req.usuario!.sub) throw new HttpError(403, "Ese sorteo no es tuyo");
+    if (sorteo.tipo !== "BINGO" && sorteo.estado !== "BORRADOR") throw new HttpError(409, "Solo se puede editar un sorteo en borrador");
+    if (datos.tipo && datos.tipo !== sorteo.tipo) throw new HttpError(409, "No se puede cambiar el tipo de un sorteo existente");
+    const anterior = sorteo.config as Record<string, any>;
+    const config = datos.config ? validarConfigPorTipo(sorteo.tipo, { ...anterior, ...datos.config }) : undefined;
+    if (config && sorteo.estado !== "BORRADOR") {
+      const estructura = (c: Record<string, any>) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== "alias" && k !== "cbu"));
+      const guardada = validarConfigPorTipo(sorteo.tipo, anterior);
+      if (JSON.stringify(estructura(config)) !== JSON.stringify(estructura(guardada))) {
+        throw new HttpError(409, "Las cantidades no se pueden modificar después de publicar; las series y cartones ya fueron generados");
+      }
+    }
+    return tx.sorteo.update({ where: { id: sorteo.id }, data: {
+      titulo: datos.titulo, descripcion: datos.descripcion,
+      fechaCierre: datos.fechaCierre === undefined ? undefined : datos.fechaCierre ? new Date(datos.fechaCierre) : null,
+      ...(config ? { config: { ...anterior, ...config } } : {}),
+    } });
+  });
+  res.json(actualizado);
+}));
 
 // ---- publicar: acá se generan los números o las series ----
 sorteosRouter.post(

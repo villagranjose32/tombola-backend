@@ -11,3 +11,10 @@ export async function resultadosBingo(where: { sorteoId?: string; eventoId?: str
   });
   return { tipo: "BINGO", cantos };
 }
+
+export function pagoPublico(config: unknown) {
+  const datos = config as { alias?: unknown; cbu?: unknown } | null;
+  const alias = typeof datos?.alias === "string" ? datos.alias : "";
+  const cbu = typeof datos?.cbu === "string" ? datos.cbu : "";
+  return alias || cbu ? { pago: { alias, cbu } } : {};
+}

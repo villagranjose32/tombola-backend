@@ -231,6 +231,39 @@ test('Servidor PostgreSQL + HTTP + WebSocket', {skip:!database,timeout:40000}, a
      await prisma.carton.deleteMany({where:{serieId:serie.id}});await prisma.serie.delete({where:{id:serie.id}});await prisma.sorteo.delete({where:{id:bingo.id}});
    }
  });
+ await t.test('Editar bingo y datos de cobro conserva series, pagos y presentación',async()=>{
+   const headers={'Content-Type':'application/json',Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})};
+   const creado=await fetch(base+'/sorteos',{method:'POST',headers,body:JSON.stringify({tipo:'BINGO',titulo:'Bingo editable',config:{cartonesPorSerie:3,cantidadSeries:1,alias:'bingo.inicial',cbu:'0123456789012345678901'}})});
+   assert.equal(creado.status,201);const bingo=await creado.json();
+   const patch=body=>fetch(base+'/sorteos/'+bingo.id,{method:'PATCH',headers,body:JSON.stringify(body)});
+   try {
+     assert.equal((await patch({config:{cantidadSeries:2}})).status,200);
+     const publicado=await fetch(base+'/sorteos/'+bingo.id+'/publicar',{method:'POST',headers});assert.equal(publicado.status,200);
+     const activo=await prisma.sorteo.findUnique({where:{id:bingo.id}});
+     const series=await prisma.serie.findMany({where:{sorteoId:bingo.id},include:{cartones:true},orderBy:{numero:'asc'}});assert.equal(series.length,2);
+     await prisma.serie.update({where:{id:series[0].id},data:{estado:'TOMADO'}});
+     await prisma.sorteo.update({where:{id:bingo.id},data:{config:{...activo.config,presentacion:{inicioProgramado:null,imagenesPremios:[]}}}});
+     const guardado=await patch({titulo:'Bingo actualizado',descripcion:'Nueva descripción',fechaCierre:null,config:{alias:'nuevo.alias',cbu:'0012345678901234567890'}});assert.equal(guardado.status,200);
+     const actualizado=await guardado.json();assert.deepEqual(actualizado.config.presentacion,{inicioProgramado:null,imagenesPremios:[]});assert.equal(actualizado.linkToken,activo.linkToken);
+     const despues=await prisma.serie.findMany({where:{sorteoId:bingo.id},include:{cartones:true},orderBy:{numero:'asc'}});
+     assert.deepEqual(despues.map(s=>s.cartones),series.map(s=>s.cartones));assert.equal(despues[0].estado,'TOMADO');
+     assert.equal((await patch({config:{cantidadSeries:3}})).status,409);
+     assert.equal((await patch({config:{cartonesPorSerie:6}})).status,409);
+     assert.equal((await patch({tipo:'RIFA'})).status,409);
+     assert.equal((await patch({config:{cbu:'abc'}})).status,400);
+     assert.equal((await fetch(base+'/sorteos/'+bingo.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:'{"titulo":"Sin permiso"}'})).status,401);
+     const otro=await prisma.usuario.create({data:{nombre:'Otro',email:crypto.randomUUID()+'@example.test',passwordHash:'unused',estado:'APROBADO'}});
+     try {
+       const otraIdentidad={...headers,Authorization:'Bearer '+firmarToken({sub:otro.id,rol:'ORGANIZADOR'})};
+       assert.equal((await fetch(base+'/sorteos/'+bingo.id,{method:'PATCH',headers:otraIdentidad,body:'{"titulo":"Sin permiso"}'})).status,403);
+     } finally {await prisma.usuario.delete({where:{id:otro.id}});}
+     const identidad=await (await fetch(base+'/s/'+activo.linkToken+'/organizador')).json();assert.deepEqual(identidad.pago,{alias:'nuevo.alias',cbu:'0012345678901234567890'});
+     const sala=await prisma.eventoEnVivo.create({data:{organizadorId:user.id,sorteoBingoId:bingo.id,titulo:'Sala',linkToken:crypto.randomUUID()}});
+     assert.deepEqual((await(await fetch(base+'/vivo/'+sala.linkToken+'/organizador')).json()).pago,identidad.pago);
+     assert.equal((await patch({config:{alias:'',cbu:''}})).status,200);
+     assert.equal((await(await fetch(base+'/s/'+activo.linkToken+'/organizador')).json()).pago,undefined);
+   } finally {await fetch(base+'/sorteos/'+bingo.id,{method:'DELETE',headers});}
+ });
  await t.test('Sesión del organizador se recupera sin exponer contraseña',async()=>{
    const r=await fetch(base+'/auth/me',{headers:{Authorization:'Bearer '+firmarToken({sub:user.id,rol:'ORGANIZADOR'})}});const data=await r.json();
    assert.equal(r.status,200);assert.equal(data.id,user.id);assert.equal(data.passwordHash,undefined);assert.equal((await fetch(base+'/auth/me')).status,401);

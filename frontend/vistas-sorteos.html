@@ -224,6 +224,8 @@
     </div>
     <div id="crearNotice"></div>
     <div class="panel" id="crearForm">
+      <div class="field full"><label for="bingoEditar">Crear o editar bingo</label><select id="bingoEditar"><option value="">Crear un sorteo nuevo</option></select></div>
+      <p id="edicionAviso" class="muted" role="status"></p>
       <div class="field full" style="margin-bottom:18px;">
         <label>Tipo de sorteo</label>
         <div class="type-select">
@@ -252,11 +254,13 @@
 
         <div class="field" data-for="SORTEO_SIMPLE" style="display:none;"><label>Cantidad de ganadores</label><input id="fGanadoresSimple" type="number" value="1" min="1"></div>
 
+        <div class="field" data-for="BINGO" style="display:none;"><label for="fAlias">Alias para transferencias (opcional)</label><input id="fAlias" maxlength="100" placeholder="mi.alias.bingo" autocomplete="off"></div>
+        <div class="field" data-for="BINGO" style="display:none;"><label for="fCbu">CBU (opcional, 22 dígitos)</label><input id="fCbu" inputmode="numeric" maxlength="22" placeholder="Ingresá los 22 dígitos" autocomplete="off"></div>
         <div class="field"><label>Cierre de inscripción (opcional)</label><input id="fFechaCierre" type="datetime-local"></div>
       </div>
       <div id="crearMsg" style="margin-top:14px;"></div>
       <div class="row" style="margin-top:6px;">
-        <div class="muted" style="font-size:12px;">Al publicar, los participantes podrán empezar a reservar.</div>
+        <div class="muted" id="crearAyuda" style="font-size:12px;">Al publicar, los participantes podrán empezar a reservar.</div>
         <button class="btn btn-primary" id="btnCrearPublicar">Crear y publicar</button>
       </div>
     </div>
@@ -372,6 +376,7 @@ let adminToken = null, adminInfo = null;
 let orgToken = null, orgInfo = null;
 let misSorteosCache = [];
 let tipoSeleccionado = 'RIFA';
+let sorteoEnEdicion = null;
 let tableroTokenActual = null, seriesTokenActual = null;
 let tableroOrganizadorSorteoId = null;
 let tableroOrganizadorTipo = null;
@@ -660,11 +665,12 @@ async function cargarMisSorteos() {
   grid.innerHTML = `<div class="muted">Cargando...</div>`;
   try {
     misSorteosCache = await api('/sorteos', { token: orgToken });
+    actualizarListaEdicion();
     if (misSorteosCache.length === 0) {
-      grid.innerHTML = `<div class="add-card" onclick="irATab('crear')">+ Nuevo sorteo</div>`;
+      grid.innerHTML = `<div class="add-card" onclick="editarBingo('')">+ Nuevo sorteo</div>`;
       return;
     }
-    grid.innerHTML = misSorteosCache.map(renderSorteoCard).join('') + `<div class="add-card" onclick="irATab('crear')">+ Nuevo sorteo</div>`;
+    grid.innerHTML = misSorteosCache.map(renderSorteoCard).join('') + `<div class="add-card" onclick="editarBingo('')">+ Nuevo sorteo</div>`;
   } catch (e) { grid.innerHTML = banner('err', e.message); }
 }
 
@@ -678,6 +684,7 @@ function renderSorteoCard(s) {
     ? `<button class="btn btn-primary btn-sm" onclick="sortearSorteo('${s.id}')">Sortear</button>`
     : `<span class="muted" style="font-size:11px;">Bingo cerrado</span>`;
   if (s.estado === 'SORTEADO') acciones = `<button class="btn btn-ghost btn-sm" onclick="irAVerResultado('${s.linkToken}')">Ver resultado</button>`;
+  if (s.tipo === 'BINGO') acciones += `<button class="btn btn-primary btn-sm" onclick="editarBingo('${s.id}')">Editar bingo</button>`;
   acciones += `<button class="btn btn-danger btn-sm" onclick="eliminarSorteo('${s.id}', this)">Eliminar</button>`;
   const enlacePublico = s.linkToken ? urlPublicaSorteo(s) : '';
   const datosPublicos = s.linkToken ? `
@@ -809,11 +816,43 @@ function abrirBolillero() {
 
 /* ================== 03 CREAR SORTEO ================== */
 document.querySelectorAll('.type-opt').forEach((o) => o.addEventListener('click', () => {
+  if (sorteoEnEdicion || publicandoSorteo) return;
   document.querySelectorAll('.type-opt').forEach((x) => x.classList.remove('sel'));
   o.classList.add('sel');
   tipoSeleccionado = o.dataset.tipo;
   document.querySelectorAll('[data-for]').forEach((f) => { f.style.display = f.dataset.for === tipoSeleccionado ? 'flex' : 'none'; });
 }));
+
+function actualizarListaEdicion() {
+  const select = document.getElementById('bingoEditar');
+  select.innerHTML = '<option value="">Crear un sorteo nuevo</option>' + misSorteosCache.filter(s => s.tipo === 'BINGO').map(s => `<option value="${s.id}">${escapeHtml(s.titulo)} · ${s.estado}</option>`).join('');
+  select.value = sorteoEnEdicion || '';
+}
+function editarBingo(id) {
+  if (publicandoSorteo) return;
+  const bingo = misSorteosCache.find(s => s.id === id && s.tipo === 'BINGO');
+  sorteoEnEdicion = bingo?.id || null;
+  document.getElementById('bingoEditar').value = sorteoEnEdicion || '';
+  tipoSeleccionado = 'BINGO';
+  document.querySelectorAll('.type-opt').forEach(o => { o.classList.toggle('sel',o.dataset.tipo === 'BINGO'); o.setAttribute('aria-disabled',String(!!bingo)); });
+  document.querySelectorAll('[data-for]').forEach(f => { f.style.display = f.dataset.for === 'BINGO' ? 'flex' : 'none'; });
+  document.getElementById('fTitulo').value = bingo?.titulo || '';
+  document.getElementById('fDescripcion').value = bingo?.descripcion || '';
+  document.getElementById('fFechaCierre').value = fechaLocal(bingo?.fechaCierre);
+  document.getElementById('fCartonesPorSerie').value = bingo?.config.cartonesPorSerie || 5;
+  document.getElementById('fCantidadSeries').value = bingo?.config.cantidadSeries || 20;
+  document.getElementById('fAlias').value = bingo?.config.alias || '';
+  document.getElementById('fCbu').value = bingo?.config.cbu || '';
+  const publicado = !!bingo && bingo.estado !== 'BORRADOR';
+  document.getElementById('fCartonesPorSerie').disabled = publicado;
+  document.getElementById('fCantidadSeries').disabled = publicado;
+  document.getElementById('edicionAviso').textContent = bingo ? (publicado ? 'Editando bingo publicado. Las series, cartones y compras se conservan; sus cantidades no se pueden modificar.' : 'Editando borrador. Podés modificar sus cantidades antes de publicarlo.') : '';
+  document.getElementById('crearAyuda').textContent = bingo ? 'Guardá los cambios para actualizar este bingo.' : 'Al publicar, los participantes podrán empezar a reservar.';
+  document.getElementById('btnCrearPublicar').textContent = bingo ? 'Guardar cambios' : 'Crear y publicar';
+  document.getElementById('crearMsg').textContent = '';
+  irATab('crear');
+}
+document.getElementById('bingoEditar').addEventListener('change', e => editarBingo(e.target.value));
 
 function refrescarNoticeCrear() {
   const notice = document.getElementById('crearNotice');
@@ -842,19 +881,28 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
   if (tipoSeleccionado === 'RIFA') {
     config = { cantidadNumeros: Number(document.getElementById('fCantidadNumeros').value), cantidadGanadores: Number(document.getElementById('fGanadoresRifa').value) };
   } else if (tipoSeleccionado === 'BINGO') {
-    config = { cartonesPorSerie: Number(document.getElementById('fCartonesPorSerie').value), cantidadSeries: Number(document.getElementById('fCantidadSeries').value) };
+    config = { cartonesPorSerie: Number(document.getElementById('fCartonesPorSerie').value), cantidadSeries: Number(document.getElementById('fCantidadSeries').value), alias: document.getElementById('fAlias').value.trim(), cbu: document.getElementById('fCbu').value.trim() };
   } else {
     config = { cantidadGanadores: Number(document.getElementById('fGanadoresSimple').value) };
   }
   const body = { tipo: tipoSeleccionado, titulo, descripcion, config };
   if (fechaCierreVal) body.fechaCierre = new Date(fechaCierreVal).toISOString();
+  else if (sorteoEnEdicion) body.fechaCierre = null;
+  if (tipoSeleccionado === 'BINGO' && config.cbu && !/^[0-9]{22}$/.test(config.cbu)) { msg.innerHTML = banner('err','El CBU debe tener 22 dígitos, sin espacios.'); return; }
 
   const boton = document.getElementById('btnCrearPublicar');
   const textoBoton = boton.textContent;
   publicandoSorteo = true;
   boton.disabled = true;
-  boton.textContent = 'Publicando…';
+  document.getElementById('bingoEditar').disabled = true;
+  boton.textContent = sorteoEnEdicion ? 'Guardando…' : 'Publicando…';
   try {
+    if (sorteoEnEdicion) {
+      await api(`/sorteos/${sorteoEnEdicion}`, {method:'PATCH', token:orgToken, body});
+      msg.innerHTML = banner('ok','Bingo actualizado. Los cambios ya se muestran en el enlace público.');
+      await cargarMisSorteos();
+      return;
+    }
     const creado = await api('/sorteos', { method: 'POST', token: orgToken, body });
     const publicado = await api(`/sorteos/${creado.id}/publicar`, { method: 'POST', token: orgToken });
     const sorteoPublicado = { ...creado, ...publicado, tipo: body.tipo };
@@ -868,7 +916,7 @@ document.getElementById('btnCrearPublicar').addEventListener('click', async () =
       </div>`;
     cargarMisSorteos();
   } catch (e) { msg.innerHTML = banner('err', e.message); }
-  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; }
+  finally { publicandoSorteo = false; boton.disabled = false; boton.textContent = textoBoton; document.getElementById('bingoEditar').disabled = false; }
 });
 
 /* ================== 04 TABLERO (RIFA / SORTEO_SIMPLE) ================== */

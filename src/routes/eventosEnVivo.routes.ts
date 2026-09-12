@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { organizadorPublico, resultadosBingo } from "../utils/transparencia";
+import { organizadorPublico, resultadosBingo, pagoPublico } from "../utils/transparencia";
 import { Router } from "express";
 import crypto from "crypto";
 import { z } from "zod";
@@ -235,9 +235,9 @@ eventosEnVivoRouter.get("/:id/series/:numero", asyncHandler(async (req, res) => 
 }));
 
 eventosEnVivoPublicoRouter.get("/:token/organizador", asyncHandler(async (req, res) => {
-  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken: req.params.token }, select: { organizador: { select: organizadorPublico } } });
+  const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken: req.params.token }, select: { sorteoBingo: { select: { config: true } }, organizador: { select: organizadorPublico } } });
   if (!evento) throw new HttpError(404, "Sorteo en vivo no encontrado");
-  res.json(evento.organizador);
+  res.set("Cache-Control", "no-store").json({ ...evento.organizador, ...pagoPublico(evento.sorteoBingo?.config) });
 }));
 eventosEnVivoPublicoRouter.get("/:token/resultados", asyncHandler(async (req, res) => {
   const evento = await prisma.eventoEnVivo.findUnique({ where: { linkToken: req.params.token }, select: { id: true, titulo: true } });

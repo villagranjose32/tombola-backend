@@ -1,4 +1,4 @@
-import { organizadorPublico, resultadosBingo } from "../utils/transparencia";
+import { organizadorPublico, resultadosBingo, pagoPublico } from "../utils/transparencia";
 import { Router } from "express";
 import { z } from "zod";
 import crypto from "crypto";
@@ -384,9 +384,9 @@ publicoRouter.get(
 );
 
 publicoRouter.get("/:token/organizador", asyncHandler(async (req, res) => {
-  const sorteo = await prisma.sorteo.findUnique({ where: { linkToken: req.params.token }, select: { organizador: { select: organizadorPublico } } });
+  const sorteo = await prisma.sorteo.findUnique({ where: { linkToken: req.params.token }, select: { config: true, organizador: { select: organizadorPublico } } });
   if (!sorteo) throw new HttpError(404, "Sorteo no encontrado");
-  res.json(sorteo.organizador);
+  res.set("Cache-Control", "no-store").json({ ...sorteo.organizador, ...pagoPublico(sorteo.config) });
 }));
 
 const consultaDniSchema = z.object({
