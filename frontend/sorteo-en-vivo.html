@@ -31,13 +31,13 @@
   main{ max-width:1180px; margin:0 auto; padding:26px; display:grid; grid-template-columns: 340px 1fr; gap:20px; }
   @media (max-width:880px){ main{ grid-template-columns:1fr; } }
   @media (min-width:1100px){
-    body.espectador main{max-width:1440px;padding:18px;grid-template-columns:300px minmax(0,1fr);gap:18px}
+    body.espectador main{max-width:1440px;padding:18px;grid-template-columns:360px minmax(0,1fr);gap:18px}
     body.espectador .board,body.espectador .rep-grid{gap:8px}
     body.espectador .board .n,body.espectador .rep-grid .n{font-size:clamp(13px,1.15vw,17px)}
     body.espectador.integrado{overflow:hidden}
     body.espectador.integrado .aviso-espacio{position:fixed;top:0;left:0;right:0}
     body.espectador.integrado main{height:100vh;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable}
-    body.espectador.integrado #sidebarCartones{height:100%;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-gutter:stable}
+    body.espectador.integrado #sidebarCartones{height:100%;min-width:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-gutter:stable}
     body.espectador.integrado main>div:last-child{min-height:100%;display:grid;grid-template-columns:minmax(300px,.58fr) minmax(500px,1fr);gap:14px;align-content:start}
     body.espectador.integrado #cagePanel{grid-column:1;grid-row:1;margin:0!important}
     body.espectador.integrado #boardPanel{position:sticky;top:0;grid-column:2;grid-row:1 / span 4;margin:3px 0 10px!important;align-self:start}
@@ -138,7 +138,7 @@
 
   .link-share{ font-family:var(--mono); font-size:10.5px; background:var(--ink); border:1px solid var(--line); padding:8px 10px; border-radius:6px; color:rgba(246,241,228,0.6); word-break:break-all; margin-top:8px; }
   .live-series{display:grid;gap:14px}.live-serie{background:var(--felt);border:1px solid var(--line);border-radius:6px;padding:14px}.live-serie-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.live-cards{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px}.live-card{background:var(--paper);color:var(--ink);padding:10px;border-radius:6px}.live-cells{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}.live-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1px solid #c9bea8;border-radius:3px;font:700 11px var(--mono);position:relative;color:var(--ink);background:#f7f0e2}.live-cell:not(.blank){cursor:pointer}.live-cell.blank{background:#ddd3c0}.live-cell.mark{background:#f5d78e;border-color:var(--marquee)}.live-cell.mark.symbol-only{background:#f7f0e2;border-color:#c9bea8}.live-cell .mark-symbol{position:absolute;font-size:21px;color:var(--stub);line-height:1}.live-cell.mark.symbol-only .mark-symbol{font-size:25px;color:rgba(189,64,48,.78)}.live-cell .cell-number{position:relative;z-index:1}.serie-load-row{display:flex;gap:8px}.serie-load-row input{flex:1}.serie-remove{padding:6px 9px!important;font-size:11px!important}
-  #sidebarCartones .live-cards{grid-template-columns:1fr}.sidebar-cartones:not(:empty){margin-top:14px}.sidebar-cartones .live-serie{padding:12px}.sidebar-cartones .live-cell{font-size:10px}.sidebar-cartones .live-cell .mark-symbol{font-size:18px}
+  #sidebarCartones .live-cards{grid-template-columns:minmax(0,1fr);max-width:100%}.sidebar-cartones:not(:empty){margin-top:14px}.sidebar-cartones .live-serie,.sidebar-cartones .live-card{min-width:0;max-width:100%}.sidebar-cartones .live-serie{padding:12px;overflow:hidden}.sidebar-cartones .live-cell{min-width:0;padding:0;font-size:11px}.sidebar-cartones .live-cell .mark-symbol{font-size:19px}
   .claim-panel{display:none;border:2px solid var(--gold);background:linear-gradient(145deg,rgba(240,199,94,.16),var(--felt));margin-bottom:14px}.claim-panel.show{display:block}.claim-title{font-family:var(--disp);font-size:22px;color:var(--gold);margin-bottom:5px}.claim-meta{font:11px var(--mono);color:rgba(246,241,228,.7);margin-bottom:12px}.claim-panel .live-cards{grid-template-columns:minmax(260px,420px)}
   @media (max-width:650px){.live-cards{grid-template-columns:1fr}}
 
@@ -157,21 +157,21 @@
     color:#fff;border:1px solid #ffffff60;text-shadow:0 1px 3px #000;
   }
   .rep-grid .n .cnt{background:#14231ce6;color:#fff;border-radius:8px;padding:1px 4px;text-shadow:none;opacity:1}
-  #historialCartones .sub-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  #historialCartones .sub-controls button{
+  #controlesCanto{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #controlesCanto button{
     min-height:58px;border:1px solid #ffffff75;border-bottom:4px solid #00000035;border-radius:10px;
     padding:10px 8px;font-family:var(--body);font-size:14px;font-weight:800;letter-spacing:.2px;
     color:#102d27;background:linear-gradient(135deg,#9cf1d7,#45cda2);box-shadow:0 4px 10px #00000030;
     transition:transform .15s ease,filter .15s ease;
   }
-  #historialCartones #btnCantarSegundaLinea{background:linear-gradient(135deg,#c4dcff,#85b7fa);color:#112c50}
-  #historialCartones #btnCantarBingo{grid-column:1/-1;background:linear-gradient(120deg,#ffe693,#ffbc43);color:#412b05;font-size:20px;letter-spacing:1px}
-  #historialCartones .sub-controls button:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-2px)}
-  #historialCartones .sub-controls button:active:not(:disabled){transform:translateY(1px)}
-  #historialCartones .sub-controls button:focus-visible{outline:3px solid #fff;outline-offset:3px}
-  #historialCartones #btnCantarLinea:disabled,#historialCartones #btnCantarSegundaLinea:disabled,#historialCartones #btnCantarBingo:disabled{background:#a9afad;color:#555;opacity:.65;box-shadow:none;border-color:#c8ccca}
-  #historialCartones .claim-icon{font-size:20px;margin-right:5px;vertical-align:middle}
-  @media(prefers-reduced-motion:reduce){#historialCartones .sub-controls button{transition:none;transform:none!important}}
+  #controlesCanto #btnCantarBingo{background:linear-gradient(120deg,#ffe693,#ffbc43);color:#412b05;font-size:20px;letter-spacing:1px}
+  #controlesCanto button:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-2px)}
+  #controlesCanto button:active:not(:disabled){transform:translateY(1px)}
+  #controlesCanto button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+  #controlesCanto #btnCantarLinea:disabled,#controlesCanto #btnCantarBingo:disabled{background:#a9afad;color:#555;opacity:.65;box-shadow:none;border-color:#c8ccca}
+  #controlesCanto .claim-icon{font-size:20px;margin-right:5px;vertical-align:middle}
+  @media(min-width:1100px){body.espectador #controlesCanto{grid-template-columns:repeat(2,1fr);margin-top:16px}body.espectador #controlesCanto #btnCantarBingo{font-size:14px}}
+  @media(prefers-reduced-motion:reduce){#controlesCanto button{transition:none;transform:none!important}}
 
   @media (prefers-reduced-motion: reduce){ .mini-ball, .rep-grid .n.win, .current-ball.pop, .cage.spinning .mini-ball, .cage.spinning .cage-rotor{ animation:none !important; } }
   header{position:relative;padding-top:46px}
@@ -258,7 +258,7 @@
     <div class="panel" id="verificarSerieBox" style="display:none;"><h2>Control de ganador</h2><div class="field"><label>Número de serie</label><input id="serieControlNumero" type="number" min="1"></div><div class="field"><label>Número de cartón</label><input id="cartonControlNumero" type="number" min="1"></div><button class="btn btn-ghost btn-full" id="btnVerificarSerie">Ver cartón y marcas</button></div>
     <div id="zonaJuego">
       <div id="historialCartones" class="juego-cabecera" hidden>
-        <div class="sub-controls"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar línea</button><button id="btnCantarSegundaLinea" disabled><span class="claim-icon" aria-hidden="true">✦</span>Cantar 2ª línea</button><button id="btnCantarBingo" disabled><span class="claim-icon" aria-hidden="true">🏆</span>¡Cantar bingo!</button></div>
+        <span id="ubicacionControlesCanto" hidden></span><div class="sub-controls" id="controlesCanto"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar línea</button><button id="btnCantarBingo" disabled><span class="claim-icon" aria-hidden="true">🏆</span>¡Cantar bingo!</button></div>
         <div id="reclamoMsg" role="status"></div>
       </div>
       <div class="live-series sidebar-cartones" id="cartonesEnVivo"></div>
@@ -692,13 +692,30 @@
   }
   function actualizarBotonesCanto(evt) {
     const premios = new Set((evt?.historialGanadores || []).map(ganador => ganador.tipo));
-    const primeraCompleta = premios.has('LINEA');
     const segundaCompleta = premios.has('SEGUNDA_LINEA');
     const bingoCompleto = premios.has('BINGO');
-    document.getElementById('btnCantarLinea').disabled = primeraCompleta;
-    document.getElementById('btnCantarSegundaLinea').disabled = !primeraCompleta || segundaCompleta;
+    document.getElementById('btnCantarLinea').disabled = segundaCompleta;
     document.getElementById('btnCantarBingo').disabled = !segundaCompleta || bingoCompleto;
   }
+  function anunciarPremiosNuevos(anterior, actual, nuevaRonda) {
+    if (!anterior || nuevaRonda) return;
+    const clave = ganador => ganador.id || `${ganador.tipo}:${ganador.numeroSerie}:${ganador.numeroCarton}`;
+    const anteriores = new Set((anterior.historialGanadores || []).map(clave));
+    const nuevos = (actual.historialGanadores || []).filter(ganador => !anteriores.has(clave(ganador)));
+    if (!nuevos.length) return;
+    const detalle = nuevos.map(ganador => `${ganador.participante || 'participante'}, serie ${ganador.numeroSerie}, cartón ${ganador.numeroCarton}`).join('; ');
+    const tipos = [...new Set(nuevos.map(ganador => `${nombrePremio(ganador.tipo)} ${ganador.tipo === 'BINGO' ? 'validado' : 'validada'}`))].join(' y ');
+    let gender = document.getElementById('voiceGender').value;
+    if (gender === 'ninguna') gender = 'femenina';
+    BingoVoz.leerMensaje(`${tipos}. ${detalle}.`, {gender, voice:pickVoice(gender), volume:voiceVolume});
+  }
+  function ubicarControlesCanto() {
+    const controles = document.getElementById('controlesCanto');
+    const escritorio = modoPantalla === 'espectador' && window.matchMedia('(min-width:1100px)').matches;
+    if (escritorio) document.getElementById('boardPanel').append(controles);
+    else document.getElementById('ubicacionControlesCanto').after(controles);
+  }
+  window.addEventListener('resize', ubicarControlesCanto);
   document.getElementById('formMensaje').addEventListener('submit', async e => {
     e.preventDefault();
     const campo = document.getElementById('textoMensaje');
@@ -762,11 +779,12 @@
         if (modoPantalla === 'espectador') {
           document.getElementById('vozBox').style.display = 'none';
           document.getElementById('serieEspectadorBox').style.display = estado.sorteoBingoId ? 'block' : 'none';
-          document.querySelector('#historialCartones .sub-controls').style.display = estado.sorteoBingoId ? '' : 'none';
+          document.getElementById('controlesCanto').style.display = estado.sorteoBingoId ? '' : 'none';
           document.getElementById('espectadorMsg').textContent = estado.estado === 'PAUSADO' ? 'Sorteo pausado.' : estado.estado === 'FINALIZADO' ? 'Sorteo finalizado.' : 'Esperando la próxima bolilla.';
         }
         if (!anterior || anterior.rangoMax !== estado.rangoMax || nuevaRonda) construirCage();
         if (nuevaRonda || (!animate && !BingoVoz.mensajeActivo())) BingoVoz.cancelar();
+        anunciarPremiosNuevos(anterior, estado, nuevaRonda);
         const estadoConfirmado = estado;
         efectosBolillero.girar(() => {
           construirCage(estadoConfirmado);
@@ -892,7 +910,6 @@
       const numerosSeries = [...seriesEspectador.keys()];
       if (!numerosSeries.length) throw new Error('Consultá tus cartones con tu DNI antes de cantar.');
       document.getElementById('btnCantarLinea').disabled = true;
-      document.getElementById('btnCantarSegundaLinea').disabled = true;
       document.getElementById('btnCantarBingo').disabled = true;
       const resultado=await api(`/vivo/${sorteoToken}/cantar`,{method:'POST',body:{tipo,numerosSeries}});
       document.getElementById('reclamoMsg').textContent = `${nombrePremio(tipo)} validado.`;
@@ -900,8 +917,7 @@
     }catch(e){document.getElementById('reclamoMsg').textContent=e.message;}
     finally { actualizarBotonesCanto(estado); }
   }
-  document.getElementById('btnCantarLinea').onclick=()=>cantarReclamo('LINEA');
-  document.getElementById('btnCantarSegundaLinea').onclick=()=>cantarReclamo('SEGUNDA_LINEA');
+  document.getElementById('btnCantarLinea').onclick=()=>cantarReclamo((estado?.historialGanadores || []).some(ganador => ganador.tipo === 'LINEA') ? 'SEGUNDA_LINEA' : 'LINEA');
   document.getElementById('btnCantarBingo').onclick=()=>cantarReclamo('BINGO');
   document.getElementById('btnVerificarSerie').addEventListener('click',async()=>{ try{
     const numeroSerie=Number(document.getElementById('serieControlNumero').value),numeroCarton=Number(document.getElementById('cartonControlNumero').value);
@@ -1076,6 +1092,7 @@
     if (params.get('modo') === 'espectador') {
       modoPantalla = 'espectador';
       document.body.classList.add('espectador');
+      ubicarControlesCanto();
       document.getElementById('historialCartones').hidden = false;
       document.getElementById('historialCartones').prepend(document.getElementById('historialBloque'));
       document.getElementById('orgLoginBox').style.display = 'none';
