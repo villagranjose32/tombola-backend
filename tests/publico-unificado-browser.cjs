@@ -76,7 +76,7 @@ app.use(express.static(path.resolve(__dirname,'../frontend')));
  await wait(`document.querySelector('iframe').contentDocument.querySelectorAll('#cartonesEnVivo [data-serie]').length === 2`);
  assert.equal(await evaluate(`document.querySelector('iframe').contentDocument.querySelectorAll('#cartonesEnVivo .mark').length`),2);
  await evaluate(`var doc=document.querySelector('iframe').contentDocument;doc.getElementById('dniReingreso').value='87654321';doc.getElementById('btnCargarSerieEspectador').click()`);
- await wait(`document.querySelector('iframe').contentDocument.getElementById('consultaCartonesMsg').textContent.includes('No encontramos')`);
+ await wait(`!document.querySelector('iframe').contentDocument.getElementById('btnCargarSerieEspectador').disabled && document.querySelector('iframe').contentDocument.querySelectorAll('#cartonesEnVivo [data-serie]').length === 0`);
  assert.equal(await evaluate(`document.querySelector('iframe').contentDocument.querySelectorAll('#cartonesEnVivo [data-serie]').length`),0);
  assert.equal(await evaluate('location.pathname'),'/tablero-publico.html');
  await evaluate('document.querySelector("iframe").contentDocument.getElementById("enlaceResultados").click()');

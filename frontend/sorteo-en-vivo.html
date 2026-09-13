@@ -35,6 +35,18 @@
   .panel + .panel{ margin-top:14px; }
   .panel h2{ font-family:var(--disp); font-weight:400; font-size:15px; letter-spacing:0.5px; color:var(--paper); margin:0 0 12px; text-transform:uppercase; }
 
+  #boardPanel{
+    position:relative;
+    background:linear-gradient(145deg,#fffdf6 0%,#f4ead7 62%,#dfcfb3 100%);
+    border:1px solid #fff8e8;
+    border-bottom:7px solid #a78c63;
+    border-radius:16px;
+    box-shadow:inset 3px 3px 5px #ffffff,inset -5px -6px 10px #b8a47a45,0 5px 0 #745e3e,0 14px 25px #00000055;
+    transform:translateY(-3px);
+  }
+  #boardPanel h2{color:#493c2c;text-shadow:0 1px 0 #fff}
+  #boardPanel .board .n:not(.called),#boardPanel .rep-grid .n:not(.c1):not(.c2):not(.win){background:linear-gradient(145deg,#fff,#ded4c1);color:#665b4b;border:1px solid #c8b99e;box-shadow:inset 1px 1px 2px #fff,1px 2px 3px #8b765044}
+
   label{ font-family:var(--mono); font-size:10px; letter-spacing:0.8px; text-transform:uppercase; color:rgba(246,241,228,0.5); display:block; margin-bottom:5px; }
   input, select{ width:100%; background:var(--ink); border:1px solid var(--line); color:var(--chalk); border-radius:6px; padding:9px 10px; font-family:var(--body); font-size:12.5px; }
   input:focus, select:focus{ outline:2px solid var(--marquee); outline-offset:0; border-color:transparent; }
@@ -111,7 +123,7 @@
   input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--marquee); border:2px solid var(--ink); cursor:pointer; margin-top:-6px; }
 
   .link-share{ font-family:var(--mono); font-size:10.5px; background:var(--ink); border:1px solid var(--line); padding:8px 10px; border-radius:6px; color:rgba(246,241,228,0.6); word-break:break-all; margin-top:8px; }
-  .live-series{display:grid;gap:14px}.live-serie{background:var(--felt);border:1px solid var(--line);border-radius:6px;padding:14px}.live-serie-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.live-cards{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px}.live-card{background:var(--paper);color:var(--ink);padding:10px;border-radius:6px}.live-cells{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}.live-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1px solid #c9bea8;border-radius:3px;font:700 11px var(--mono);position:relative;color:var(--ink);background:#f7f0e2}.live-cell:not(.blank){cursor:pointer}.live-cell.blank{background:#ddd3c0}.live-cell.mark{background:#f5d78e;border-color:var(--marquee)}.live-cell.mark.symbol-only{background:#f7f0e2;border-color:#c9bea8}.live-cell .mark-symbol{position:absolute;font-size:21px;color:var(--stub);line-height:1}.live-cell.mark.symbol-only .mark-symbol{font-size:25px;color:rgba(189,64,48,.78)}.live-cell .cell-number{position:relative;z-index:1}.mark-palette{display:flex;gap:6px;margin:10px 0}.mark-choice{font-size:19px!important;padding:7px 12px!important}.mark-choice.active{background:var(--marquee)!important;color:var(--ink)!important}.serie-load-row{display:flex;gap:8px}.serie-load-row input{flex:1}.serie-remove{padding:6px 9px!important;font-size:11px!important}
+  .live-series{display:grid;gap:14px}.live-serie{background:var(--felt);border:1px solid var(--line);border-radius:6px;padding:14px}.live-serie-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.live-cards{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px}.live-card{background:var(--paper);color:var(--ink);padding:10px;border-radius:6px}.live-cells{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}.live-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1px solid #c9bea8;border-radius:3px;font:700 11px var(--mono);position:relative;color:var(--ink);background:#f7f0e2}.live-cell:not(.blank){cursor:pointer}.live-cell.blank{background:#ddd3c0}.live-cell.mark{background:#f5d78e;border-color:var(--marquee)}.live-cell.mark.symbol-only{background:#f7f0e2;border-color:#c9bea8}.live-cell .mark-symbol{position:absolute;font-size:21px;color:var(--stub);line-height:1}.live-cell.mark.symbol-only .mark-symbol{font-size:25px;color:rgba(189,64,48,.78)}.live-cell .cell-number{position:relative;z-index:1}.serie-load-row{display:flex;gap:8px}.serie-load-row input{flex:1}.serie-remove{padding:6px 9px!important;font-size:11px!important}
   #sidebarCartones .live-cards{grid-template-columns:1fr}.sidebar-cartones:not(:empty){margin-top:14px}.sidebar-cartones .live-serie{padding:12px}.sidebar-cartones .live-cell{font-size:10px}.sidebar-cartones .live-cell .mark-symbol{font-size:18px}
   .claim-panel{display:none;border:2px solid var(--gold);background:linear-gradient(145deg,rgba(240,199,94,.16),var(--felt));margin-bottom:14px}.claim-panel.show{display:block}.claim-title{font-family:var(--disp);font-size:22px;color:var(--gold);margin-bottom:5px}.claim-meta{font:11px var(--mono);color:rgba(246,241,228,.7);margin-bottom:12px}.claim-panel .live-cards{grid-template-columns:minmax(260px,420px)}
   @media (max-width:650px){.live-cards{grid-template-columns:1fr}}
@@ -143,7 +155,7 @@
   #historialCartones .sub-controls button:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-2px)}
   #historialCartones .sub-controls button:active:not(:disabled){transform:translateY(1px)}
   #historialCartones .sub-controls button:focus-visible{outline:3px solid #fff;outline-offset:3px}
-  #historialCartones .sub-controls button:disabled{opacity:.55;box-shadow:none}
+  #historialCartones #btnCantarLinea:disabled,#historialCartones #btnCantarSegundaLinea:disabled,#historialCartones #btnCantarBingo:disabled{background:#a9afad;color:#555;opacity:.65;box-shadow:none;border-color:#c8ccca}
   #historialCartones .claim-icon{font-size:20px;margin-right:5px;vertical-align:middle}
   @media(prefers-reduced-motion:reduce){#historialCartones .sub-controls button{transition:none;transform:none!important}}
 
@@ -204,11 +216,9 @@
     </div>
 
     <!-- ESPECTADOR -->
-    <div class="panel" id="espectadorBox" style="display:none;">
-      <h2>Sorteo en vivo</h2>
-      <div id="espectadorMsg" role="status">Conectando al sorteo...</div>
+    <div id="espectadorBox" style="display:none;">
       <label class="opcion-voz"><input type="checkbox" id="escucharMensajes">Escuchar mensajes por voz</label>
-      <p id="estadoVozMensajes" class="hint" role="status">Activá esta opción para escuchar los avisos que el organizador envíe con voz.</p>
+      <span id="espectadorMsg" hidden></span><span id="estadoVozMensajes" hidden></span>
     </div>
 
     <!-- voz (siempre visible una vez hay tablero) -->
@@ -229,19 +239,12 @@
     </div>
     <div class="panel" id="serieEspectadorBox" style="display:none;">
       <h2>Mis cartones</h2>
-      <div class="field"><label for="dniReingreso">DNI del titular</label><div class="serie-load-row"><input id="dniReingreso" inputmode="numeric" pattern="[0-9]{7,8}" minlength="7" maxlength="8" placeholder="Sin puntos"><button class="btn btn-primary" id="btnCargarSerieEspectador">Ver mis cartones</button></div></div><p id="consultaCartonesMsg" role="status"></p>
-      <label>Símbolo para marcar</label>
-      <div class="mark-palette" id="markPaletteVivo">
-        <button type="button" class="btn btn-ghost mark-choice active" data-mark="🌱" title="Semilla">🌱</button>
-        <button type="button" class="btn btn-ghost mark-choice" data-mark="✓" title="Tilde">✓</button>
-        <button type="button" class="btn btn-ghost mark-choice" data-mark="✕" title="Cruz">✕</button>
-      </div>
-      <div class="hint">Ingresá solo tu DNI para cargar todas tus series confirmadas de este sorteo. Tocá un número del cartón para marcarlo o desmarcarlo.</div>
+      <div class="field"><label for="dniReingreso">DNI</label><div class="serie-load-row"><input id="dniReingreso" inputmode="numeric" pattern="[0-9]{7,8}" minlength="7" maxlength="8" placeholder="Sin puntos"><button class="btn btn-primary" id="btnCargarSerieEspectador">Ver mis cartones</button></div></div>
     </div>
     <div class="panel" id="verificarSerieBox" style="display:none;"><h2>Control de ganador</h2><div class="field"><label>Número de serie</label><input id="serieControlNumero" type="number" min="1"></div><div class="field"><label>Número de cartón</label><input id="cartonControlNumero" type="number" min="1"></div><button class="btn btn-ghost btn-full" id="btnVerificarSerie">Ver cartón y marcas</button></div>
     <div id="zonaJuego">
       <div id="historialCartones" class="juego-cabecera" hidden>
-        <div class="sub-controls"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar línea</button><button id="btnCantarSegundaLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar 2ª línea</button><button id="btnCantarBingo"><span class="claim-icon" aria-hidden="true">🏆</span>¡Cantar bingo!</button></div>
+        <div class="sub-controls"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar línea</button><button id="btnCantarSegundaLinea" disabled><span class="claim-icon" aria-hidden="true">✦</span>Cantar 2ª línea</button><button id="btnCantarBingo" disabled><span class="claim-icon" aria-hidden="true">🏆</span>¡Cantar bingo!</button></div>
         <div id="reclamoMsg" role="status"></div>
       </div>
       <div class="live-series sidebar-cartones" id="cartonesEnVivo"></div>
@@ -673,6 +676,15 @@
     }).join('');
     if (lista.innerHTML !== html) lista.innerHTML = html;
   }
+  function actualizarBotonesCanto(evt) {
+    const premios = new Set((evt?.historialGanadores || []).map(ganador => ganador.tipo));
+    const primeraCompleta = premios.has('LINEA');
+    const segundaCompleta = premios.has('SEGUNDA_LINEA');
+    const bingoCompleto = premios.has('BINGO');
+    document.getElementById('btnCantarLinea').disabled = primeraCompleta;
+    document.getElementById('btnCantarSegundaLinea').disabled = !primeraCompleta || segundaCompleta;
+    document.getElementById('btnCantarBingo').disabled = !segundaCompleta || bingoCompleto;
+  }
   document.getElementById('formMensaje').addEventListener('submit', async e => {
     e.preventDefault();
     const campo = document.getElementById('textoMensaje');
@@ -751,6 +763,7 @@
           if (animate && !document.hidden) cantar(estadoConfirmado.numeroActual);
         }, animate, estadoConfirmado.duracionGiroMs);
         mostrarGanadores(estado);
+        actualizarBotonesCanto(estado);
         mostrarReclamo(estado);
         if (estado.estado !== 'EN_CURSO') pararAutoplay();
         autoplayBtn.disabled = reiniciando || estado.estado !== 'EN_CURSO';
@@ -807,33 +820,25 @@
   async function cargarCartonesPorDni(){
     const boton = document.getElementById('btnCargarSerieEspectador');
     const campo = document.getElementById('dniReingreso');
-    const mensaje = document.getElementById('consultaCartonesMsg');
     if (boton.disabled) return;
     const dni = campo.value.trim();
     seriesEspectador.clear(); renderSeriesEspectador();
-    if (!/^[0-9]{7,8}$/.test(dni)) { mensaje.textContent = 'Ingresá un DNI de 7 u 8 dígitos, sin puntos.'; return; }
+    campo.setCustomValidity(/^[0-9]{7,8}$/.test(dni) ? '' : 'Ingresá un DNI de 7 u 8 dígitos, sin puntos.');
+    if (!campo.reportValidity()) return;
     boton.disabled = true; campo.disabled = true;
-    mensaje.textContent = 'Buscando cartones…';
     try {
       const data = await api(`/vivo/${sorteoToken}/mis-series`, {method:'POST', body:{dni}});
       for (const serie of data.series) seriesEspectador.set(serie.numeroSerie, serie);
       renderSeriesEspectador();
-      mensaje.textContent = data.series.length
-        ? `${data.series.reduce((total, serie) => total + serie.cartones.length, 0)} cartones en ${data.series.length} series confirmadas.`
-        : 'No encontramos series confirmadas para ese DNI en este sorteo. Si reservaste, esperá la confirmación del pago.';
-    } catch(e) { mensaje.textContent = e.message; }
+    } catch(e) { alert(e.message); }
     finally { boton.disabled = false; campo.disabled = false; }
   }
   document.getElementById('btnCargarSerieEspectador').addEventListener('click', cargarCartonesPorDni);
   document.getElementById('dniReingreso').addEventListener('keydown', e => { if(e.key === 'Enter') cargarCartonesPorDni(); });
   document.getElementById('dniReingreso').addEventListener('input', () => {
-    seriesEspectador.clear(); renderSeriesEspectador(); document.getElementById('consultaCartonesMsg').textContent = '';
-  });
-  document.getElementById('markPaletteVivo').addEventListener('click',e=>{
-    const boton=e.target.closest('[data-mark]'); if(!boton)return;
-    simboloMarca=boton.dataset.mark;
-    document.querySelectorAll('#markPaletteVivo .mark-choice').forEach(b=>b.classList.toggle('active',b===boton));
-    renderSeriesEspectador();
+    const campo = document.getElementById('dniReingreso');
+    campo.setCustomValidity('');
+    seriesEspectador.clear(); renderSeriesEspectador();
   });
   document.getElementById('cartonesEnVivo').addEventListener('click',async e=>{
     const quitar=e.target.closest('[data-quitar-serie]');
@@ -880,11 +885,7 @@
       document.getElementById('reclamoMsg').textContent = `${nombrePremio(tipo)} validado.`;
       liveSync?.accept(resultado, true, false);
     }catch(e){document.getElementById('reclamoMsg').textContent=e.message;}
-    finally {
-      document.getElementById('btnCantarLinea').disabled = false;
-      document.getElementById('btnCantarSegundaLinea').disabled = false;
-      document.getElementById('btnCantarBingo').disabled = false;
-    }
+    finally { actualizarBotonesCanto(estado); }
   }
   document.getElementById('btnCantarLinea').onclick=()=>cantarReclamo('LINEA');
   document.getElementById('btnCantarSegundaLinea').onclick=()=>cantarReclamo('SEGUNDA_LINEA');
