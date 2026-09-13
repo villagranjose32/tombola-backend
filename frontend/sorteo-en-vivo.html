@@ -34,11 +34,20 @@
     body.espectador main{max-width:1440px;padding:18px;grid-template-columns:300px minmax(0,1fr);gap:18px}
     body.espectador .board,body.espectador .rep-grid{gap:8px}
     body.espectador .board .n,body.espectador .rep-grid .n{font-size:clamp(13px,1.15vw,17px)}
+    body.espectador.integrado{overflow:hidden}
+    body.espectador.integrado .aviso-espacio{position:fixed;top:0;left:0;right:0}
+    body.espectador.integrado main{height:100vh;overflow:hidden}
+    body.espectador.integrado #sidebarCartones{height:100%;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-gutter:stable}
+    body.espectador.integrado main>div:last-child{height:100%;overflow:hidden;display:grid;grid-template-columns:minmax(300px,.58fr) minmax(500px,1fr);gap:14px;align-content:start}
+    body.espectador.integrado #cagePanel{grid-column:1;grid-row:1;margin:0!important}
+    body.espectador.integrado #boardPanel{grid-column:2;grid-row:1 / span 4;margin:3px 0 10px!important;align-self:start}
+    body.espectador.integrado #ganadoresPanel,body.espectador.integrado #reclamoPublico,body.espectador.integrado .winner-banner{grid-column:1}
   }
 
   .panel{ background:var(--felt); border:1px solid var(--line); border-radius:6px; padding:20px; }
   .panel + .panel{ margin-top:14px; }
   .panel h2{ font-family:var(--disp); font-weight:400; font-size:15px; letter-spacing:0.5px; color:var(--paper); margin:0 0 12px; text-transform:uppercase; }
+  body.espectador.integrado>.marquee-bar,body.espectador.integrado>header{display:none}
 
   #boardPanel{
     position:relative;
@@ -1062,6 +1071,7 @@
 
   async function inicializarDesdeEnlace() {
     const params = new URLSearchParams(window.location.search);
+    if (params.get('integrado') === '1') document.body.classList.add('integrado');
     const valorSorteo = params.get('sorteo');
     if (params.get('modo') === 'espectador') {
       modoPantalla = 'espectador';

@@ -30,11 +30,11 @@ window.Transparencia = (() => {
     const datos = ['alias','cbu'].filter(k => typeof data.pago?.[k] === 'string' && data.pago[k]);
     if (!datos.length) return;
     const pago = document.createElement('section'); pago.className = 'datos-pago';
-    const titulo = document.createElement('strong'); titulo.textContent = 'Datos para transferir'; pago.append(titulo);
     const aviso = document.createElement('p'); aviso.setAttribute('role','status');
     for (const clave of datos) {
       const nombre = clave === 'alias' ? 'Alias' : 'CBU';
-      const label = document.createElement('label'); label.textContent = nombre;
+      const grupo = document.createElement('div'); grupo.className = 'dato-pago';
+      const label = document.createElement('label'); label.textContent = nombre + ': ';
       const valor = document.createElement('input'); valor.readOnly = true; valor.value = data.pago[clave]; valor.setAttribute('aria-label',nombre + ' para transferir');
       label.append(valor);
       const boton = document.createElement('button'); boton.type = 'button'; boton.className = 'copiar-pago'; boton.textContent = 'Copiar ' + nombre;
@@ -42,7 +42,7 @@ window.Transparencia = (() => {
         try { await navigator.clipboard.writeText(valor.value); aviso.textContent = nombre + ' copiado.'; }
         catch { valor.focus(); valor.select(); aviso.textContent = 'Seleccionamos el ' + nombre + ' para que puedas copiarlo manualmente.'; }
       };
-      pago.append(label, boton);
+      grupo.append(label, boton); pago.append(grupo);
     }
     pago.append(aviso); box.append(pago);
   }

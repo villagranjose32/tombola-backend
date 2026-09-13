@@ -23,6 +23,17 @@
 /* Menú del espectador: botones con relieve, cada sección con su color. */
 body[data-vista="tablero"] main{padding-top:8px}
 @media(min-width:1100px){body[data-vista="tablero"] main{max-width:1440px;padding-left:24px;padding-right:24px}}
+@media(min-width:1100px){
+  body[data-vista="tablero"].vista-vivo{overflow:hidden}
+  body[data-vista="tablero"].vista-vivo main{height:100vh;overflow:hidden;padding-bottom:0}
+  body[data-vista="tablero"].vista-vivo main>header,
+  body[data-vista="tablero"].vista-vivo #premios,
+  body[data-vista="tablero"].vista-vivo #cuentaRegresiva,
+  body[data-vista="tablero"].vista-vivo #mensaje,
+  body[data-vista="tablero"].vista-vivo #comprobante{display:none!important}
+  body[data-vista="tablero"].vista-vivo #contenido{height:calc(100vh - 82px);overflow:hidden}
+  body[data-vista="tablero"].vista-vivo #contenido>iframe{display:block;height:100%!important}
+}
 body[data-vista="tablero"] main > .acciones{position:sticky;top:0;z-index:50;flex-wrap:nowrap;overflow-x:auto;gap:14px 12px;margin:0 0 12px;padding:8px 0 10px;background:#14231cf2;box-shadow:0 8px 12px #14231c99}
 body[data-vista="tablero"] main > .acciones > button{
   --cara:#1658c6;--brillo:#3277dd;--base:#103778;

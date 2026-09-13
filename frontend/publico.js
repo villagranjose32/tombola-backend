@@ -160,6 +160,7 @@
   async function cambiarVista(nueva) {
     if (cargando) return;
     vista = nueva;
+    document.body.classList.toggle('vista-vivo', vista === 'vivo');
     $('contenido').replaceChildren(); $('mensaje').textContent = '';
     if (vista === 'descarga') { prepararDescarga(); return; }
     if (vista === 'vivo') {
