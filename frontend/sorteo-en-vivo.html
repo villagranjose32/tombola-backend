@@ -30,6 +30,11 @@
 
   main{ max-width:1180px; margin:0 auto; padding:26px; display:grid; grid-template-columns: 340px 1fr; gap:20px; }
   @media (max-width:880px){ main{ grid-template-columns:1fr; } }
+  @media (min-width:1100px){
+    body.espectador main{max-width:1440px;padding:18px;grid-template-columns:300px minmax(0,1fr);gap:18px}
+    body.espectador .board,body.espectador .rep-grid{gap:8px}
+    body.espectador .board .n,body.espectador .rep-grid .n{font-size:clamp(13px,1.15vw,17px)}
+  }
 
   .panel{ background:var(--felt); border:1px solid var(--line); border-radius:6px; padding:20px; }
   .panel + .panel{ margin-top:14px; }

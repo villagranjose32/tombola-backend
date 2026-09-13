@@ -60,7 +60,7 @@ window.Transparencia = (() => {
       if (!response.ok) throw new Error();
       const data = await response.json();
       if (turno !== solicitud) return;
-      box.innerHTML = `<strong>Organizador: ${escape(data.nombre)}</strong><br>DNI: ${escape(data.dni || 'No informado')}<br>Teléfono: ${escape(data.telefono || 'No informado')}`;
+      box.innerHTML = `<div class="datos-identidad"><strong>Organizador: ${escape(data.nombre)}</strong><span>DNI: ${escape(data.dni || 'No informado')}</span><span>Teléfono: ${escape(data.telefono || 'No informado')}</span></div>`;
       agregarContactoYPago(box, data);
     } catch (_) { if (turno === solicitud) box.textContent = 'No se pudieron cargar los datos del organizador.'; }
   }
