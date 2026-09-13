@@ -715,7 +715,6 @@
     if (liveSync?.token === token) { liveSync.start(); liveSync.recover(); return; }
     limpiarComunidad();
     liveSync?.stop();
-    Transparencia.organizador(API, `/vivo/${encodeURIComponent(token)}`);
     const resultados = document.getElementById('enlaceResultados');
     resultados.hidden = false;
     resultados.href = '/resultado-publico.html?evento=1&sorteo=' + encodeURIComponent(token);

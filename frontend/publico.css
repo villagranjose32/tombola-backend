@@ -21,10 +21,11 @@
 @media(prefers-reduced-motion:reduce){.series-compra .item{transition:none}.series-compra .item:hover:not(:disabled),.series-compra .item:active:not(:disabled){transform:none}}
 
 /* Menú del espectador: botones con relieve, cada sección con su color. */
-body[data-vista="tablero"] main > .acciones{gap:14px 12px;margin-bottom:24px}
+body[data-vista="tablero"] main{padding-top:8px}
+body[data-vista="tablero"] main > .acciones{position:sticky;top:0;z-index:50;flex-wrap:nowrap;overflow-x:auto;gap:14px 12px;margin:0 0 12px;padding:8px 0 10px;background:#14231cf2;box-shadow:0 8px 12px #14231c99}
 body[data-vista="tablero"] main > .acciones > button{
   --cara:#1658c6;--brillo:#3277dd;--base:#103778;
-  flex:1 1 180px;min-height:56px;padding:14px 18px;
+  flex:1 0 180px;min-height:56px;padding:14px 18px;
   border:1px solid #ffffff65;border-radius:12px;
   background:linear-gradient(155deg,var(--brillo),var(--cara) 70%);color:#fff;
   font-weight:750;line-height:1.35;
