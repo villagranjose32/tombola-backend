@@ -36,11 +36,11 @@
     body.espectador .board .n,body.espectador .rep-grid .n{font-size:clamp(13px,1.15vw,17px)}
     body.espectador.integrado{overflow:hidden}
     body.espectador.integrado .aviso-espacio{position:fixed;top:0;left:0;right:0}
-    body.espectador.integrado main{height:100vh;overflow:hidden}
+    body.espectador.integrado main{height:100vh;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable}
     body.espectador.integrado #sidebarCartones{height:100%;overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-gutter:stable}
-    body.espectador.integrado main>div:last-child{height:100%;overflow:hidden;display:grid;grid-template-columns:minmax(300px,.58fr) minmax(500px,1fr);gap:14px;align-content:start}
+    body.espectador.integrado main>div:last-child{min-height:100%;display:grid;grid-template-columns:minmax(300px,.58fr) minmax(500px,1fr);gap:14px;align-content:start}
     body.espectador.integrado #cagePanel{grid-column:1;grid-row:1;margin:0!important}
-    body.espectador.integrado #boardPanel{grid-column:2;grid-row:1 / span 4;margin:3px 0 10px!important;align-self:start}
+    body.espectador.integrado #boardPanel{position:sticky;top:0;grid-column:2;grid-row:1 / span 4;margin:3px 0 10px!important;align-self:start}
     body.espectador.integrado #ganadoresPanel,body.espectador.integrado #reclamoPublico,body.espectador.integrado .winner-banner{grid-column:1}
   }
 
