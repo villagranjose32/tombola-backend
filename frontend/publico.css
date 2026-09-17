@@ -53,7 +53,10 @@ body[data-vista="tablero"] main > .acciones > button:focus-visible{outline:3px s
 @media(prefers-reduced-motion:reduce){body[data-vista="tablero"] main > .acciones > button{transition:none;transform:none!important}}
 
 /* El vivo móvil ocupa el ancho disponible y tiene un único scroll de juego. */
+#alternarMenuEspectador{display:none}
 @media(max-width:880px){
+  body[data-vista="tablero"].vista-vivo #alternarMenuEspectador{display:block;align-self:flex-end;flex-shrink:0;min-height:32px;margin:2px 8px;padding:4px 10px;background:#1e3b2a;color:#f2e9d8;font-size:12px}
+  body[data-vista="tablero"].vista-vivo.menu-minimizado main>.acciones{display:none}
   body[data-vista="tablero"].vista-vivo{overflow:hidden}
   body[data-vista="tablero"].vista-vivo main{height:100dvh;padding:0;display:flex;flex-direction:column;min-width:0}
   body[data-vista="tablero"].vista-vivo main>header,

@@ -180,6 +180,20 @@
     await cargar();
   }
   if (unificado) {
+    const menu = document.querySelector('main > .acciones');
+    menu.id = 'menuEspectador';
+    const alternarMenu = document.createElement('button');
+    alternarMenu.id = 'alternarMenuEspectador';
+    alternarMenu.type = 'button';
+    alternarMenu.textContent = 'Ocultar menú ▴';
+    alternarMenu.setAttribute('aria-controls', menu.id);
+    alternarMenu.setAttribute('aria-expanded', 'true');
+    alternarMenu.onclick = () => {
+      const oculto = document.body.classList.toggle('menu-minimizado');
+      alternarMenu.setAttribute('aria-expanded', String(!oculto));
+      alternarMenu.textContent = oculto ? 'Mostrar menú ▾' : 'Ocultar menú ▴';
+    };
+    menu.before(alternarMenu);
     for (const [nombre, destino, id] of [['Comprar / participar', 'tablero', 'verCompra'], ['Ver y descargar mis cartones', 'descarga', 'verSeries'], ['Ingresar al vivo', 'vivo', 'verVivo'], ['Ver resultados', 'resultado', 'verResultados']]) {
       const boton = document.createElement('button'); boton.id = id; boton.textContent = nombre;
       boton.onclick = () => cambiarVista(destino); document.querySelector('.acciones').append(boton);
