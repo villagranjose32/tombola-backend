@@ -189,6 +189,34 @@
   .juego-cabecera{position:sticky;top:0;z-index:20;background:var(--felt);padding:12px;border:1px solid var(--line);border-radius:6px;margin:14px 0}
   .juego-cabecera .historial{justify-content:space-between}.juego-cabecera .field{margin:0}.juego-cabecera .sub-controls{margin-top:10px}
   @media(max-width:1100px){.bolillero-layout{grid-template-columns:1fr}}
+  .mobile-label{display:none}
+  @media(max-width:880px){
+    body.espectador main{padding:8px;gap:12px;min-width:0}
+    body.espectador main>div,body.espectador #zonaJuego{min-width:0}
+    body.espectador .panel{padding:12px}
+    body.espectador .aviso-espacio{padding:4px 8px;min-height:0;position:relative}
+    body.espectador .serie-load-row input{min-width:0;font-size:16px}
+    body.espectador #sidebarCartones .live-serie{padding:0;border:0;background:transparent;overflow:visible}
+    body.espectador .live-serie-head{padding:0 4px;margin-bottom:6px}
+    body.espectador #sidebarCartones .live-card{padding:6px}
+    body.espectador .live-cells{gap:2px;grid-template-columns:repeat(9,minmax(0,1fr))}
+    body.espectador #sidebarCartones .live-cell{font-size:clamp(13px,4vw,19px)}
+    body.espectador .carton-label{display:none}
+    body.espectador .juego-cabecera{top:0;padding:6px;margin:8px 0;border-radius:6px;box-shadow:0 3px 8px #0005}
+    body.espectador #historialBloque>label{display:none}
+    body.espectador .juego-cabecera .historial{margin:0;gap:6px}
+    body.espectador .hist-ball{width:34px;height:34px;font-size:13px;flex-shrink:0}
+    body.espectador #controlesCanto{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+    body.espectador #controlesCanto button{flex:0 1 88px;min-height:36px;padding:5px 12px;font-size:13px;letter-spacing:0;border-bottom-width:2px;border-radius:6px}
+    body.espectador #controlesCanto .claim-icon,body.espectador #controlesCanto .desktop-label{display:none}
+    body.espectador #controlesCanto .mobile-label{display:inline}
+    body.espectador #reclamoMsg:empty{display:none}
+    body.espectador .cage-wrap{zoom:.8}
+    body.espectador #boardPanel{height:calc(100svh - 16px);min-height:300px;margin:8px 0!important;padding:12px 8px;transform:none;display:flex;flex-direction:column;scroll-margin-top:8px}
+    body.espectador #board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;align-items:center}
+    body.espectador #board .n{min-width:0;font-size:clamp(10px,3vw,15px)}
+    body.espectador .claim-panel .live-cards{grid-template-columns:minmax(0,1fr)}
+  }
 </style>
 <link rel="stylesheet" href="/transparencia.css"><script src="/transparencia.js"></script></head>
 <body>
@@ -258,7 +286,7 @@
     <div class="panel" id="verificarSerieBox" style="display:none;"><h2>Control de ganador</h2><div class="field"><label>Número de serie</label><input id="serieControlNumero" type="number" min="1"></div><div class="field"><label>Número de cartón</label><input id="cartonControlNumero" type="number" min="1"></div><button class="btn btn-ghost btn-full" id="btnVerificarSerie">Ver cartón y marcas</button></div>
     <div id="zonaJuego">
       <div id="historialCartones" class="juego-cabecera" hidden>
-        <span id="ubicacionControlesCanto" hidden></span><div class="sub-controls" id="controlesCanto"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span>Cantar línea</button><button id="btnCantarBingo" disabled><span class="claim-icon" aria-hidden="true">🏆</span>¡Cantar bingo!</button></div>
+        <span id="ubicacionControlesCanto" hidden></span><div class="sub-controls" id="controlesCanto"><button id="btnCantarLinea"><span class="claim-icon" aria-hidden="true">✦</span><span class="desktop-label">Cantar línea</span><span class="mobile-label">Línea</span></button><button id="btnCantarBingo" disabled><span class="claim-icon" aria-hidden="true">🏆</span><span class="desktop-label">¡Cantar bingo!</span><span class="mobile-label">Bingo</span></button></div>
         <div id="reclamoMsg" role="status"></div>
       </div>
       <div class="live-series sidebar-cartones" id="cartonesEnVivo"></div>
@@ -507,7 +535,7 @@
     document.getElementById('orgControlesBox').style.display = 'block';
     document.getElementById('mensajesOrganizador').hidden = false;
     document.getElementById('cagePanel').style.display = 'block';
-    document.getElementById('boardPanel').style.display = 'block';
+    document.getElementById('boardPanel').style.display = '';
     document.getElementById('vozBox').style.display = 'block';
     document.getElementById('verificarSerieBox').style.display = estado?.sorteoBingoId ? 'block' : 'none';
     document.getElementById('btnExtraer').disabled = estado?.estado === 'FINALIZADO';
@@ -774,7 +802,7 @@
         }
         document.getElementById('tituloSorteo').textContent = estado.titulo;
         document.getElementById('cagePanel').style.display = 'block';
-        document.getElementById('boardPanel').style.display = 'block';
+        document.getElementById('boardPanel').style.display = '';
         document.getElementById('vozBox').style.display = 'block';
         if (modoPantalla === 'espectador') {
           document.getElementById('vozBox').style.display = 'none';
@@ -834,7 +862,7 @@
     const marcas = data.marcas || {};
     return `<section class="live-serie" data-serie="${data.numeroSerie}">
       <div class="live-serie-head"><strong>Serie ${String(data.numeroSerie).padStart(3,'0')}</strong>${editable?`<button class="btn btn-ghost serie-remove" data-quitar-serie="${data.numeroSerie}">Quitar</button>`:''}</div>
-      <div class="live-cards">${data.cartones.map(c => `<div class="live-card"><strong>Cartón ${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => {
+      <div class="live-cards">${data.cartones.map(c => `<div class="live-card"><strong aria-label="Cartón ${c.posicion}"><span class="carton-label">Cartón </span>${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => {
         if(n===null) return '<span class="live-cell blank"></span>';
         const marcada=(marcas[c.id]||[]).includes(n);
         return `<button class="live-cell ${marcada?'mark':''} ${marcada&&simboloMarca!=='🌱'?'symbol-only':''}" ${editable?'':'disabled'} data-carton="${c.id}" data-numero="${n}"><span class="cell-number">${n}</span>${marcada?`<span class="mark-symbol">${simboloMarca}</span>`:''}</button>`;
@@ -900,7 +928,7 @@
       const c = ganador.carton;
       const participante = ganador.participante ? ` · ${escapeHtml(ganador.participante)}` : '';
       return `<div class="claim-meta"><strong>${nombrePremio(ganador.tipo)}</strong> · Serie ${String(ganador.numeroSerie).padStart(3,'0')} · Cartón ${ganador.numeroCarton}${participante}</div>
-        <div class="live-cards"><div class="live-card"><strong>Cartón ${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => n === null ? '<span class="live-cell blank"></span>' : `<span class="live-cell ${extraidas.has(n) ? 'mark' : ''}"><span class="cell-number">${n}</span>${extraidas.has(n) ? '<span class="mark-symbol">✓</span>' : ''}</span>`).join('')}</div></div></div>`;
+        <div class="live-cards"><div class="live-card"><strong aria-label="Cartón ${c.posicion}"><span class="carton-label">Cartón </span>${c.posicion}</strong><div class="live-cells">${c.contenido.flat().map(n => n === null ? '<span class="live-cell blank"></span>' : `<span class="live-cell ${extraidas.has(n) ? 'mark' : ''}"><span class="cell-number">${n}</span>${extraidas.has(n) ? '<span class="mark-symbol">✓</span>' : ''}</span>`).join('')}</div></div></div>`;
     }).join('');
     panel.classList.add('show');
 

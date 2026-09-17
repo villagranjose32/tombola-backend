@@ -177,6 +177,28 @@ app.use(express.static(path.resolve(__dirname,'../frontend')));
  const sticky=await evaluate('({top:document.getElementById("historialCartones").getBoundingClientRect().top,position:getComputedStyle(document.getElementById("historialCartones")).position})');
  assert.equal(sticky.position,'sticky');assert(sticky.top>=-1&&sticky.top<30);
  console.log('OK: historial permanece visible junto a los cartones al desplazarse en pantalla móvil.');
+ for (const width of [320,390,430]) {
+   await cmd('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
+   const layout=await evaluate(`(() => {
+     const card=document.querySelector('#cartonesEnVivo .live-card').getBoundingClientRect();
+     const button=document.getElementById('btnCantarBingo');
+     return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,cardWidth:card.width,
+       left:card.left,right:card.right,buttonHeight:button.getBoundingClientRect().height,label:button.innerText.trim(),
+       title:document.querySelector('#cartonesEnVivo .live-card>strong').innerText.trim()};
+   })()`);
+   assert(layout.scrollWidth<=width);assert(layout.left>=6&&layout.right<=width-6);
+   assert(layout.cardWidth>=width-20);assert(layout.buttonHeight<=40);
+   assert.equal(layout.label.toLowerCase(),'bingo');assert.equal(layout.title,'1');
+   await evaluate('document.getElementById("boardPanel").scrollIntoView()');
+   const board=await evaluate(`(() => {
+     const panel=document.getElementById('boardPanel').getBoundingClientRect();
+     return {top:panel.top,bottom:panel.bottom,height:panel.height,cells:[...document.querySelectorAll('#board .n')].map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};})};
+   })()`);
+   assert(board.top>=0&&board.bottom<=844);assert(board.height>=800);
+   assert.equal(board.cells.length,90);
+   assert(board.cells.every(r=>r.left>=0&&r.right<=width&&r.top>=board.top&&r.bottom<=board.bottom));
+ }
+ console.log('OK: cartones amplios, botones compactos y tablero completo en móviles de 320, 390 y 430 px.');
  if (liveOnly) {
    await evaluate('document.getElementById("boardPanel").scrollIntoView()');
    assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true);
